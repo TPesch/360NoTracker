@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const navDonationsBtn = document.getElementById('nav-donations');
     const navGiftSubsBtn = document.getElementById('nav-gift-subs');
     const navSpinCommandsBtn = document.getElementById('nav-spin-commands');
+    const navSpinTrackerBtn = document.getElementById('nav-spin-tracker');
     const navSettingsBtn = document.getElementById('nav-settings');
     
     // Export button
@@ -37,6 +38,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     navSpinCommandsBtn.addEventListener('click', () => {
       window.location.href = 'spin-commands.html';
+    });
+    
+    navSpinTrackerBtn.addEventListener('click', () => {
+      window.location.href = 'spin-tracker.html';
     });
     
     navSettingsBtn.addEventListener('click', () => {

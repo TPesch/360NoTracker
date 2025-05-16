@@ -8,18 +8,27 @@ const DataManager = require('./data-manager');
 let mainWindow;
 let twitchClient;
 let dataManager;
-// Connection status tracking variable
+// Enhanced connection status tracking with timeout management
+// Simple connection status object without any non-serializable properties
 let twitchConnectionStatus = {
   connected: false,
   connecting: false,
   lastAttempt: null,
   error: null
 };
+
 // Add new IPC handlers for connection status
 function setupConnectionHandlers() {
   // Get current connection status
   ipcMain.handle('get-connection-status', () => {
-    return twitchConnectionStatus;
+    // Make a clean copy without circular references
+    return {
+      connected: twitchConnectionStatus.connected,
+      connecting: twitchConnectionStatus.connecting,
+      lastAttempt: twitchConnectionStatus.lastAttempt ? 
+                   twitchConnectionStatus.lastAttempt.toISOString() : null,
+      error: twitchConnectionStatus.error
+    };
   });
 
   // Update connection status event handler
@@ -35,30 +44,84 @@ function setupConnectionHandlers() {
     } else if (status.status === 'timeout') {
       twitchConnectionStatus.connecting = false;
       twitchConnectionStatus.error = 'Connection attempt timed out';
+    } else if (status.status === 'error') {
+      twitchConnectionStatus.connecting = false;
+      twitchConnectionStatus.connected = false;
+      twitchConnectionStatus.error = status.error || 'Connection failed';
     }
     
-    // Forward the update to the renderer
-    if (mainWindow) {
-      mainWindow.webContents.send('connection-status-update', twitchConnectionStatus);
+    // Send safe connection status update to renderer
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      try {
+        mainWindow.webContents.send('connection-status-update', {
+          connected: twitchConnectionStatus.connected,
+          connecting: twitchConnectionStatus.connecting,
+          lastAttempt: twitchConnectionStatus.lastAttempt ? 
+                       twitchConnectionStatus.lastAttempt.toISOString() : null,
+          error: twitchConnectionStatus.error
+        });
+      } catch (err) {
+        console.error('Error sending connection status to renderer:', err);
+      }
     }
   });
-  
-  // Updated connect to Twitch handler
-  ipcMain.handle('connect-to-twitch', async () => {
-    try {
-      // Check if already connecting or connected
-      if (twitchConnectionStatus.connecting) {
-        console.log('Connection already in progress, ignoring request');
-        return { success: false, message: 'Connection already in progress' };
+  // Force reset connection status
+  ipcMain.handle('force-reset-connection', () => {
+    console.log('Force resetting connection status');
+    twitchConnectionStatus.connecting = false;
+    twitchConnectionStatus.connected = false;
+    twitchConnectionStatus.error = null;
+    
+    // Let the renderer know about the reset
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      try {
+        mainWindow.webContents.send('connection-status-update', {
+          connected: false,
+          connecting: false,
+          lastAttempt: null,
+          error: null
+        });
+      } catch (err) {
+        console.error('Error sending connection reset status to renderer:', err);
       }
-      
-      // Mark as connecting
+    }
+    
+    return { success: true };
+  });
+// Connect to Twitch handler - FIXED VERSION
+  ipcMain.handle('connect-to-twitch', async () => {
+    // Even if it says we're connecting, force reset the state first
+    twitchConnectionStatus.connecting = false;
+    twitchConnectionStatus.connected = false;
+    twitchConnectionStatus.error = null;
+    
+    try {
+      // Now mark as connecting
       twitchConnectionStatus.connecting = true;
       twitchConnectionStatus.lastAttempt = new Date();
       
-      // Forward status to renderer
-      if (mainWindow) {
-        mainWindow.webContents.send('connection-status-update', twitchConnectionStatus);
+      // Send status update to renderer
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        try {
+          mainWindow.webContents.send('connection-status-update', {
+            connected: twitchConnectionStatus.connected,
+            connecting: twitchConnectionStatus.connecting,
+            lastAttempt: twitchConnectionStatus.lastAttempt.toISOString(),
+            error: null
+          });
+        } catch (err) {
+          console.error('Error sending connection status to renderer:', err);
+        }
+      }
+      
+      // Make sure any existing client is cleaned up first
+      if (twitchClient && twitchClient.client) {
+        try {
+          await twitchClient.disconnect();
+        } catch (err) {
+          console.log('Error while disconnecting existing client:', err);
+          // Continue anyway
+        }
       }
       
       // Connect to Twitch
@@ -69,9 +132,18 @@ function setupConnectionHandlers() {
       twitchConnectionStatus.connected = result.success;
       twitchConnectionStatus.error = result.success ? null : result.message;
       
-      // Forward status to renderer
-      if (mainWindow) {
-        mainWindow.webContents.send('connection-status-update', twitchConnectionStatus);
+      // Send status update to renderer
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        try {
+          mainWindow.webContents.send('connection-status-update', {
+            connected: twitchConnectionStatus.connected,
+            connecting: twitchConnectionStatus.connecting,
+            lastAttempt: twitchConnectionStatus.lastAttempt.toISOString(),
+            error: twitchConnectionStatus.error
+          });
+        } catch (err) {
+          console.error('Error sending connection status to renderer:', err);
+        }
       }
       
       return result;
@@ -83,16 +155,24 @@ function setupConnectionHandlers() {
       twitchConnectionStatus.connected = false;
       twitchConnectionStatus.error = error.message;
       
-      // Forward status to renderer
-      if (mainWindow) {
-        mainWindow.webContents.send('connection-status-update', twitchConnectionStatus);
+      // Send status update to renderer
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        try {
+          mainWindow.webContents.send('connection-status-update', {
+            connected: twitchConnectionStatus.connected,
+            connecting: twitchConnectionStatus.connecting,
+            lastAttempt: twitchConnectionStatus.lastAttempt.toISOString(),
+            error: twitchConnectionStatus.error
+          });
+        } catch (err) {
+          console.error('Error sending connection status to renderer:', err);
+        }
       }
       
       throw error;
     }
   });
-  
-  // Updated disconnect from Twitch handler
+ // Disconnect from Twitch handler - SIMPLIFIED VERSION
   ipcMain.handle('disconnect-from-twitch', async () => {
     try {
       // Check if already disconnected
@@ -104,9 +184,25 @@ function setupConnectionHandlers() {
       // Mark as disconnecting
       twitchConnectionStatus.connecting = false;
       
-      // Forward status to renderer
-      if (mainWindow) {
-        mainWindow.webContents.send('connection-status-update', twitchConnectionStatus);
+      // Send safe connection status update to renderer
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        try {
+          mainWindow.webContents.send('connection-status-update', {
+            connected: twitchConnectionStatus.connected,
+            connecting: twitchConnectionStatus.connecting,
+            lastAttempt: twitchConnectionStatus.lastAttempt ? 
+                        twitchConnectionStatus.lastAttempt.toISOString() : null,
+            error: twitchConnectionStatus.error
+          });
+        } catch (err) {
+          console.error('Error sending connection status to renderer:', err);
+        }
+      }
+      
+      // Make sure twitchClient exists
+      if (!twitchClient) {
+        twitchConnectionStatus.connected = false;
+        return { success: true, message: 'Not connected' };
       }
       
       // Disconnect from Twitch
@@ -116,9 +212,19 @@ function setupConnectionHandlers() {
       twitchConnectionStatus.connected = false;
       twitchConnectionStatus.error = null;
       
-      // Forward status to renderer
-      if (mainWindow) {
-        mainWindow.webContents.send('connection-status-update', twitchConnectionStatus);
+      // Send safe connection status update to renderer
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        try {
+          mainWindow.webContents.send('connection-status-update', {
+            connected: twitchConnectionStatus.connected,
+            connecting: twitchConnectionStatus.connecting,
+            lastAttempt: twitchConnectionStatus.lastAttempt ? 
+                        twitchConnectionStatus.lastAttempt.toISOString() : null,
+            error: twitchConnectionStatus.error
+          });
+        } catch (err) {
+          console.error('Error sending connection status to renderer:', err);
+        }
       }
       
       return result;
@@ -129,9 +235,19 @@ function setupConnectionHandlers() {
       twitchConnectionStatus.connected = false;
       twitchConnectionStatus.error = error.message;
       
-      // Forward status to renderer
-      if (mainWindow) {
-        mainWindow.webContents.send('connection-status-update', twitchConnectionStatus);
+      // Send safe connection status update to renderer
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        try {
+          mainWindow.webContents.send('connection-status-update', {
+            connected: twitchConnectionStatus.connected,
+            connecting: twitchConnectionStatus.connecting,
+            lastAttempt: twitchConnectionStatus.lastAttempt ? 
+                        twitchConnectionStatus.lastAttempt.toISOString() : null,
+            error: twitchConnectionStatus.error
+          });
+        } catch (err) {
+          console.error('Error sending connection status to renderer:', err);
+        }
       }
       
       throw error;
@@ -446,8 +562,22 @@ app.on('window-all-closed', () => {
 });
 
 // Clean up when app is quitting
-app.on('before-quit', () => {
-  if (twitchClient) {
-    twitchClient.disconnect();
+app.on('before-quit', async (event) => {
+  // If twitchClient exists and is connected, try to disconnect gracefully
+  if (twitchClient && twitchClient.connected) {
+    try {
+      // Prevent immediate quit to allow disconnection
+      event.preventDefault();
+      
+      // Try to disconnect
+      await twitchClient.disconnect();
+      
+      // Now quit for real
+      app.quit();
+    } catch (error) {
+      console.error('Error disconnecting before quit:', error);
+      // Continue with quit even if there's an error
+      app.quit();
+    }
   }
 });

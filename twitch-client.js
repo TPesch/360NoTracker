@@ -7,11 +7,18 @@ class TwitchClient {
     this.connected = false;
   }
   
-  // Connect to Twitch chat
   connect() {
-    // If already connected, return
-    if (this.connected && this.client) {
-      return Promise.resolve({ success: true, message: 'Already connected to Twitch' });
+    // Even if connected, force recreate the client
+    if (this.client) {
+      try {
+        // Try to clean up existing client
+        this.client.removeAllListeners();
+        this.client = null;
+      } catch (err) {
+        console.error('Error cleaning up existing client:', err);
+        // Continue anyway
+      }
+      this.connected = false;
     }
     
     // Mark as connecting
@@ -31,7 +38,7 @@ class TwitchClient {
       connection: {
         secure: true,
         reconnect: true,
-        timeout: 10000  // Add timeout option
+        timeout: 10000
       },
       channels: [config.channelName]
     };
@@ -50,9 +57,28 @@ class TwitchClient {
     // Set up event handlers
     this.setupEventHandlers();
     
-    // Connect to Twitch
-    return this.client.connect()
+    // Set up a connection timeout
+    const connectionTimeout = new Promise((_, reject) => {
+      const timeoutId = setTimeout(() => {
+        reject(new Error('Connection attempt timed out after 10 seconds'));
+      }, 10000);
+      
+      // Store the timeout ID so we can clear it if connected successfully
+      this.connectionTimeoutId = timeoutId;
+    });
+    
+    // Connect with timeout
+    return Promise.race([
+      this.client.connect(),
+      connectionTimeout
+    ])
       .then(() => {
+        // Clear the timeout if we connected successfully
+        if (this.connectionTimeoutId) {
+          clearTimeout(this.connectionTimeoutId);
+          this.connectionTimeoutId = null;
+        }
+        
         this.connected = true;
         this.dataManager.emit('twitch-connection-status', { 
           connected: true, 
@@ -64,31 +90,63 @@ class TwitchClient {
         return { success: true, message: `Connected to ${config.channelName}'s channel` };
       })
       .catch(error => {
+        // Clear the timeout if it exists
+        if (this.connectionTimeoutId) {
+          clearTimeout(this.connectionTimeoutId);
+          this.connectionTimeoutId = null;
+        }
+        
         console.error('Error connecting to Twitch:', error);
+        this.connected = false;
+        
+        // Clean up client if connection failed
+        if (this.client) {
+          try {
+            this.client.removeAllListeners();
+            this.client = null;
+          } catch (err) {
+            console.error('Error cleaning up client after failed connection:', err);
+          }
+        }
+        
         this.dataManager.emit('twitch-connection-status', { connected: false, error: error.message });
         throw error;
       });
   }
-  
-  // Disconnect from Twitch chat
-  disconnect() {
-    if (!this.connected || !this.client) {
-      return Promise.resolve({ success: true, message: 'Not connected to Twitch' });
-    }
-    
-    return this.client.disconnect()
-      .then(() => {
-        this.connected = false;
-        this.dataManager.emit('twitch-connection-status', { connected: false });
-        
-        console.log('Disconnected from Twitch');
-        return { success: true, message: 'Disconnected from Twitch' };
-      })
-      .catch(error => {
-        console.error('Error disconnecting from Twitch:', error);
-        throw error;
-      });
+// Disconnect from Twitch chat with better cleanup
+disconnect() {
+  if (!this.connected || !this.client) {
+    return Promise.resolve({ success: true, message: 'Not connected to Twitch' });
   }
+  
+  // Create a copy of the client to avoid race conditions
+  const clientToDisconnect = this.client;
+  
+  // Clear our references immediately
+  this.client = null;
+  this.connected = false;
+  
+  // Emit status update before actual disconnect to provide immediate UI feedback
+  this.dataManager.emit('twitch-connection-status', { connected: false });
+  
+  return clientToDisconnect.disconnect()
+    .then(() => {
+      console.log('Disconnected from Twitch');
+      return { success: true, message: 'Disconnected from Twitch' };
+    })
+    .catch(error => {
+      console.error('Error disconnecting from Twitch:', error);
+      throw error;
+    })
+    .finally(() => {
+      // Clean up listeners to prevent memory leaks
+      try {
+        clientToDisconnect.removeAllListeners();
+      } catch (err) {
+        console.error('Error removing listeners during disconnect:', err);
+      }
+    });
+}
   
   // Set up event handlers for Twitch events
   setupEventHandlers() {

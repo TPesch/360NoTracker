@@ -91,8 +91,8 @@ document.addEventListener('DOMContentLoaded', async function() {
   testSpinCommandBtn.addEventListener('click', () => {
     createTestSpinCommand();
   });
-  
-  // Connect/disconnect handlers
+
+ // Connect/disconnect handlers
   connectButton.addEventListener('click', () => {
     connectToTwitch();
   });
@@ -100,7 +100,149 @@ document.addEventListener('DOMContentLoaded', async function() {
   disconnectButton.addEventListener('click', () => {
     disconnectFromTwitch();
   });
+
   
+  async function connectToTwitch() {
+    try {
+      // Update status in UI
+      connectionStatusEl.textContent = 'Connecting...';
+      connectionStatusEl.className = 'status-value connecting';
+      
+      // Disable connect button
+      connectButton.disabled = true;
+      
+      // Connect
+      const result = await window.electronAPI.connectToTwitch();
+      console.log('Connect result:', result);
+      
+      return result;
+    } catch (error) {
+      console.error('Error connecting to Twitch:', error);
+      
+      // Update status in UI
+      connectionStatusEl.textContent = 'Connection failed: ' + (error.message || 'Unknown error');
+      connectionStatusEl.className = 'status-value disconnected';
+      
+      // Re-enable connect button
+      connectButton.disabled = false;
+      
+      throw error;
+    }
+  }
+  
+  // Disconnect from Twitch with enhanced error handling
+  async function disconnectFromTwitch() {
+    try {
+      // Update status
+      connectionStatusEl.textContent = 'Disconnecting...';
+      connectionStatusEl.className = 'status-value connecting';
+      
+      const result = await window.electronAPI.disconnectFromTwitch();
+      console.log('Disconnect result:', result);
+      
+      // Update status
+      connectionStatusEl.textContent = 'Disconnected';
+      connectionStatusEl.className = 'status-value disconnected';
+      
+      return result;
+    } catch (error) {
+      console.error('Error disconnecting from Twitch:', error);
+      
+      // Update status
+      connectionStatusEl.textContent = 'Error disconnecting: ' + (error.message || 'Unknown error');
+      connectionStatusEl.className = 'status-value disconnected';
+      
+      // If there was an error, try to force reset the connection status
+      try {
+        await window.electronAPI.forceResetConnection();
+      } catch (resetError) {
+        console.error('Error during connection reset:', resetError);
+      }
+      
+      throw error;
+    }
+  }
+  
+
+// Enhanced connection status update handler
+function updateConnectionStatus(status) {
+  console.log('Connection status update:', status);
+  
+  // Get or create the recovery button
+  const recoveryButton = addConnectionRecoveryButton();
+  
+  // Update status text and class
+  if (status.connecting) {
+    connectionStatusEl.textContent = 'Connecting...';
+    connectionStatusEl.className = 'status-value connecting';
+  } else if (status.connected) {
+    connectionStatusEl.textContent = 'Connected';
+    connectionStatusEl.className = 'status-value connected';
+  } else {
+    connectionStatusEl.textContent = status.error ? `Disconnected: ${status.error}` : 'Disconnected';
+    connectionStatusEl.className = 'status-value disconnected';
+  }
+  
+  // Enable/disable buttons
+  connectButton.disabled = status.connected || status.connecting;
+  disconnectButton.disabled = !status.connected;
+  
+  // Show recovery button if connection appears to be stuck
+  if (status.connecting && status.lastAttempt) {
+    const now = new Date();
+    const lastAttempt = new Date(status.lastAttempt);
+    const connectionTime = now - lastAttempt;
+    
+    if (connectionTime > 15000 && recoveryButton) { // 15 seconds
+      recoveryButton.style.display = 'inline-block';
+    }
+  } else if (recoveryButton) {
+    recoveryButton.style.display = 'none';
+  }
+  
+  // Update channel name if connected
+  if (status.connected && status.channel) {
+    channelNameEl.textContent = status.channel;
+  }
+}
+
+  function addConnectionRecoveryButton() {
+    // Create a new recovery button if it doesn't exist
+    if (!document.getElementById('force-reset-connection')) {
+      const recoveryButton = document.createElement('button');
+      recoveryButton.id = 'force-reset-connection';
+      recoveryButton.className = 'button button-danger';
+      recoveryButton.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Reset Connection';
+      recoveryButton.style.display = 'none'; // Hide by default
+      
+      // Add the button to the connection panel
+      const connectionPanel = document.querySelector('.connection-panel');
+      if (connectionPanel) {
+        connectionPanel.appendChild(recoveryButton);
+        
+        // Add click handler
+        recoveryButton.addEventListener('click', async () => {
+          try {
+            console.log('Manually forcing connection reset');
+            connectionStatusEl.textContent = 'Resetting connection...';
+            await window.electronAPI.forceResetConnection();
+            connectionStatusEl.textContent = 'Connection reset';
+            connectionStatusEl.className = 'status-value disconnected';
+            
+            // Update button states
+            connectButton.disabled = false;
+            disconnectButton.disabled = true;
+            recoveryButton.style.display = 'none';
+          } catch (error) {
+            console.error('Error resetting connection:', error);
+            connectionStatusEl.textContent = 'Reset failed: ' + (error.message || 'Unknown error');
+          }
+        });
+      }
+    }
+    
+    return document.getElementById('force-reset-connection');
+  } 
   // Format timestamp
   function formatTimestamp(timestamp) {
     const date = new Date(timestamp);
@@ -208,21 +350,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }, 10000);
   }
   
-  // Update connection status
-  function updateConnectionStatus(status) {
-    // Update status text and class
-    connectionStatusEl.textContent = status.connected ? 'Connected' : 'Disconnected';
-    connectionStatusEl.className = 'status-value ' + (status.connected ? 'connected' : 'disconnected');
-    
-    // Enable/disable buttons
-    connectButton.disabled = status.connected;
-    disconnectButton.disabled = !status.connected;
-    
-    // Update channel name if connected
-    if (status.connected && status.channel) {
-      channelNameEl.textContent = status.channel;
-    }
-  }
+
   
   // Update donation stats
   function updateDonationStats(stats) {
@@ -280,25 +408,61 @@ document.addEventListener('DOMContentLoaded', async function() {
       console.error(`Error exporting ${type} data:`, error);
     }
   }
-  
-  // Connect to Twitch
+  // Connect to Twitch with automatic stuck connection handling
   async function connectToTwitch() {
     try {
-      // Update status
-      connectionStatusEl.textContent = 'Connecting...';
-      connectionStatusEl.className = 'status-value connecting';
+      // Check if already connecting
+      const currentStatus = await window.electronAPI.getConnectionStatus();
+
+      // If it's been stuck connecting for a while, force reset
+      if (currentStatus.connecting && currentStatus.lastAttempt) {
+        const now = new Date();
+      const lastAttempt = new Date(currentStatus.lastAttempt);
+      const connectionTime = now - lastAttempt;
       
-      // Connect
-      const result = await window.electronAPI.connectToTwitch();
-      console.log('Connect result:', result);
-    } catch (error) {
-      console.error('Error connecting to Twitch:', error);
-      
-      // Update status
-      connectionStatusEl.textContent = 'Connection failed';
+      if (connectionTime > 10000) { // 10 seconds
+        console.log('Connection appears to be stalled, forcing reset first');
+        await window.electronAPI.forceResetConnection();
+        // Wait a moment before attempting to connect again
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    
+    // Update status
+    connectionStatusEl.textContent = 'Connecting...';
+    connectionStatusEl.className = 'status-value connecting';
+    
+    // Connect
+    const result = await window.electronAPI.connectToTwitch();
+    console.log('Connect result:', result);
+    
+    // Update status based on result
+    if (result.success) {
+      connectionStatusEl.textContent = 'Connected';
+      connectionStatusEl.className = 'status-value connected';
+    } else {
+      connectionStatusEl.textContent = result.message || 'Connection failed';
       connectionStatusEl.className = 'status-value disconnected';
     }
+    
+    return result;
+  } catch (error) {
+    console.error('Error connecting to Twitch:', error);
+    
+    // Update status
+    connectionStatusEl.textContent = 'Connection failed: ' + (error.message || 'Unknown error');
+    connectionStatusEl.className = 'status-value disconnected';
+    
+    // If there was an error, try to force reset the connection status
+    try {
+      await window.electronAPI.forceResetConnection();
+    } catch (resetError) {
+      console.error('Error during connection reset:', resetError);
+    }
+    
+    throw error;
   }
+}
   
   // Disconnect from Twitch
   async function disconnectFromTwitch() {

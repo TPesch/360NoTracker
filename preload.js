@@ -17,38 +17,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateGiftSubSpin: (data) => ipcRenderer.invoke('update-gift-sub-spin', data),
   processSpinCommand: (data) => ipcRenderer.invoke('process-spin-command', data),
   
- // Twitch connection handling with timeout and retry
- connectToTwitch: () => {
-  // Set a connection status indicator
-  ipcRenderer.send('connection-status-update', { status: 'connecting' });
-  
-  // Set a timeout to detect hanging connections
-  const connectionTimeout = setTimeout(() => {
-    console.log('Connection attempt timed out, retrying...');
-    ipcRenderer.send('connection-status-update', { status: 'timeout' });
+  connectToTwitch: () => {
+    // Set a connection status indicator first
+    ipcRenderer.send('connection-status-update', { status: 'connecting' });
     
-    // Try to disconnect and reconnect
-    ipcRenderer.invoke('disconnect-from-twitch').then(() => {
-      // Wait a moment and try to reconnect
-      setTimeout(() => {
-        ipcRenderer.invoke('connect-to-twitch');
-      }, 1000);
-    });
-  }, 10000); // 10 second timeout
-  
-  // Invoke the connection method
-  return ipcRenderer.invoke('connect-to-twitch')
-    .then(result => {
-      // Clear the timeout
-      clearTimeout(connectionTimeout);
-      return result;
-    })
-    .catch(error => {
-      // Clear the timeout
-      clearTimeout(connectionTimeout);
-      throw error;
-    });
-},
+    return ipcRenderer.invoke('connect-to-twitch')
+      .catch(error => {
+        // Make sure we update the UI if there's an error
+        ipcRenderer.send('connection-status-update', { 
+          status: 'error', 
+          error: error.message 
+        });
+        throw error;
+      });
+  },
 
 disconnectFromTwitch: () => {
   // Set a disconnection status
@@ -63,6 +45,7 @@ onConnectionStatusUpdate: (callback) =>
 
 // Check current connection status
 getConnectionStatus: () => ipcRenderer.invoke('get-connection-status'),
+forceResetConnection: () => ipcRenderer.invoke('force-reset-connection'),
 
   // Test functions
   createTestDonation: (data) => ipcRenderer.invoke('create-test-donation', data),

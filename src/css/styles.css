@@ -540,4 +540,11 @@ footer {
   .connection-panel button {
     width: 100%;
   }
+  .button-danger {
+    background-color: var(--danger);
+  }
+  .button-danger:hover {
+    background-color: #ff3b38;
+  }
+  
 }
