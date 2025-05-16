@@ -38,7 +38,7 @@ disconnectFromTwitch: () => {
   
   return ipcRenderer.invoke('disconnect-from-twitch');
 },
-
+deleteAllData: () => ipcRenderer.invoke('delete-all-data'),
 // Add a connection status listener
 onConnectionStatusUpdate: (callback) => 
   ipcRenderer.on('connection-status-update', (_, status) => callback(status)),

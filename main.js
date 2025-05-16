@@ -253,6 +253,7 @@ function setupConnectionHandlers() {
       throw error;
     }
   });
+  
 }
 
 // Initialize data directory
@@ -470,17 +471,9 @@ function setupIPC() {
     return dataManager.createTestSpinCommand(data);
   });
 
-  // // Connect to Twitch
-  // ipcMain.handle('connect-to-twitch', () => {
-  //   return twitchClient.connect();
-  // });
-  setupConnectionHandlers();
-  // Connect to Twitch
 
-  // // Disconnect from Twitch
-  // ipcMain.handle('disconnect-from-twitch', () => {
-  //   return twitchClient.disconnect();
-  // });
+  setupConnectionHandlers();
+
 
   // Get spin tracker data
   ipcMain.handle('get-spin-tracker-data', () => {
@@ -519,6 +512,48 @@ function setupIPC() {
         }
       });
     });
+  });
+  // Delete all data
+  ipcMain.handle('delete-all-data', async () => {
+    try {
+      // Show confirmation dialog
+      const choice = await dialog.showMessageBox(mainWindow, {
+        type: 'warning',
+        title: 'Delete All Data',
+        message: 'Are you sure you want to delete all tracking data?',
+        detail: 'This will permanently delete all donation records, gift sub records, and spin commands. This cannot be undone. Your settings will be preserved.',
+        buttons: ['Cancel', 'Delete All Data'],
+        defaultId: 0,
+        cancelId: 0
+      });
+      
+      // If user confirmed (clicked the "Delete All Data" button)
+      if (choice.response === 1) {
+        const result = await dataManager.deleteAllData();
+        
+        // Show success message
+        await dialog.showMessageBox(mainWindow, {
+          type: 'info',
+          title: 'Data Deleted',
+          message: 'All tracking data has been deleted successfully.',
+          buttons: ['OK']
+        });
+        
+        return result;
+      } else {
+        return { success: false, canceled: true };
+      }
+    } catch (error) {
+      console.error('Error deleting data:', error);
+      
+      // Show error message
+      await dialog.showErrorBox(
+        'Error Deleting Data',
+        `Failed to delete data: ${error.message}`
+      );
+      
+      throw error;
+    }
   });
 }
 

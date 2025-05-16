@@ -151,4 +151,18 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     // Initialize
     loadSettings();
+    // Delete all data button
+    const deleteAllDataBtn = document.getElementById('delete-all-data');
+    if (deleteAllDataBtn) {
+      deleteAllDataBtn.addEventListener('click', async () => {
+        try {
+          await window.electronAPI.deleteAllData();
+          
+          // The main process will show the success/error dialogs
+          // No need to update the UI here
+        } catch (error) {
+          console.error('Error deleting data:', error);
+        }
+      });
+    }
   });

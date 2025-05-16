@@ -31,7 +31,23 @@ class DataManager extends EventEmitter {
     // Load configuration if exists
     this.loadConfig();
   }
-  
+  // Delete all tracked data
+  deleteAllData() {
+    return new Promise((resolve, reject) => {
+      try {
+        // Create empty files with just headers
+        fs.writeFileSync(this.bitDonationsPath, 'Timestamp,Username,Bits,Message,SpinTriggered,SpinCompletedCount\n');
+        fs.writeFileSync(this.giftSubsPath, 'Timestamp,Username,SubCount,RecipientUsernames,SpinTriggered,SpinCompletedCount\n');
+        fs.writeFileSync(this.spinCommandsPath, 'Timestamp,Username,Command\n');
+        
+        console.log('All tracking data deleted');
+        return resolve({ success: true, message: 'All tracking data has been deleted' });
+      } catch (error) {
+        console.error('Error deleting data:', error);
+        return reject(error);
+      }
+    });
+  }
   // Initialize data files if they don't exist
   initializeDataFiles() {
     // Create data directory if it doesn't exist
