@@ -14,6 +14,9 @@ class TwitchClient {
       return Promise.resolve({ success: true, message: 'Already connected to Twitch' });
     }
     
+    // Mark as connecting
+    console.log('Connecting to Twitch...');
+    
     // Get configuration from data manager
     const config = this.dataManager.getConfig();
     
@@ -27,7 +30,8 @@ class TwitchClient {
       options: { debug: false },
       connection: {
         secure: true,
-        reconnect: true
+        reconnect: true,
+        timeout: 10000  // Add timeout option
       },
       channels: [config.channelName]
     };

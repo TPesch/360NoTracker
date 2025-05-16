@@ -17,10 +17,53 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateGiftSubSpin: (data) => ipcRenderer.invoke('update-gift-sub-spin', data),
   processSpinCommand: (data) => ipcRenderer.invoke('process-spin-command', data),
   
-  // Twitch connection
-  connectToTwitch: () => ipcRenderer.invoke('connect-to-twitch'),
-  disconnectFromTwitch: () => ipcRenderer.invoke('disconnect-from-twitch'),
+ // Twitch connection handling with timeout and retry
+ connectToTwitch: () => {
+  // Set a connection status indicator
+  ipcRenderer.send('connection-status-update', { status: 'connecting' });
   
+  // Set a timeout to detect hanging connections
+  const connectionTimeout = setTimeout(() => {
+    console.log('Connection attempt timed out, retrying...');
+    ipcRenderer.send('connection-status-update', { status: 'timeout' });
+    
+    // Try to disconnect and reconnect
+    ipcRenderer.invoke('disconnect-from-twitch').then(() => {
+      // Wait a moment and try to reconnect
+      setTimeout(() => {
+        ipcRenderer.invoke('connect-to-twitch');
+      }, 1000);
+    });
+  }, 10000); // 10 second timeout
+  
+  // Invoke the connection method
+  return ipcRenderer.invoke('connect-to-twitch')
+    .then(result => {
+      // Clear the timeout
+      clearTimeout(connectionTimeout);
+      return result;
+    })
+    .catch(error => {
+      // Clear the timeout
+      clearTimeout(connectionTimeout);
+      throw error;
+    });
+},
+
+disconnectFromTwitch: () => {
+  // Set a disconnection status
+  ipcRenderer.send('connection-status-update', { status: 'disconnecting' });
+  
+  return ipcRenderer.invoke('disconnect-from-twitch');
+},
+
+// Add a connection status listener
+onConnectionStatusUpdate: (callback) => 
+  ipcRenderer.on('connection-status-update', (_, status) => callback(status)),
+
+// Check current connection status
+getConnectionStatus: () => ipcRenderer.invoke('get-connection-status'),
+
   // Test functions
   createTestDonation: (data) => ipcRenderer.invoke('create-test-donation', data),
   createTestGiftSub: (data) => ipcRenderer.invoke('create-test-gift-sub', data),

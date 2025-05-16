@@ -206,7 +206,6 @@ class DataManager extends EventEmitter {
     return spinCommand;
   }
   
-  // Get bit donations
   getBitDonations() {
     return new Promise((resolve, reject) => {
       try {
@@ -214,37 +213,105 @@ class DataManager extends EventEmitter {
           return resolve({ donations: [], stats: this.calculateDonationStats([]) });
         }
         
+        // First, let's check if the CSV file has the SpinCompletedCount column
+        const fileContent = fs.readFileSync(this.bitDonationsPath, 'utf8');
+        const lines = fileContent.split('\n').filter(line => line.trim() !== '');
+        const header = lines[0];
+        
+        console.log('Bit donations CSV header:', header);
+        
+        // If the header doesn't include SpinCompletedCount, add it
+        let updatedHeader = header;
+        let updatedContent = false;
+        if (!header.includes('SpinCompletedCount')) {
+          console.log('Adding SpinCompletedCount column to header');
+          updatedHeader = header + ',SpinCompletedCount';
+          const updatedLines = [updatedHeader];
+          
+          // Add 0 as default value for all existing rows
+          for (let i = 1; i < lines.length; i++) {
+            updatedLines.push(lines[i] + ',0');
+          }
+          
+          // Write back to file
+          fs.writeFileSync(this.bitDonationsPath, updatedLines.join('\n'));
+          console.log('Updated bit donations CSV with SpinCompletedCount column');
+          updatedContent = true;
+        }
+        
         const donations = [];
         fs.createReadStream(this.bitDonationsPath)
           .pipe(csvParser())
           .on('data', (row) => {
+            // Check if the CSV has the SpinCompletedCount column
+            const spinCompletedCount = row.hasOwnProperty('SpinCompletedCount') 
+              ? parseInt(row.SpinCompletedCount) || 0 
+              : 0;
+            
+            // Log each row being processed to check for issues
+            console.log('Processing donation row:', row);
+            
             donations.push({
               timestamp: row.Timestamp,
               username: row.Username,
               bits: parseInt(row.Bits),
-              message: row.Message,
-              spinTriggered: row.SpinTriggered === 'YES'
+              message: row.Message || '',
+              spinTriggered: row.SpinTriggered === 'YES',
+              spinCompletedCount: spinCompletedCount
             });
           })
           .on('end', () => {
+            console.log(`Loaded ${donations.length} bit donations`);
+            // Log a sample donation if available
+            if (donations.length > 0) {
+              console.log('Sample donation:', JSON.stringify(donations[0]));
+            }
+            
             const stats = this.calculateDonationStats(donations);
-            resolve({ donations, stats });
+            resolve({ donations, stats, updatedContent });
           })
           .on('error', (error) => {
+            console.error('Error parsing bit donations CSV:', error);
             reject(error);
           });
       } catch (error) {
+        console.error('Error in getBitDonations:', error);
         reject(error);
       }
     });
   }
   
-  // Get gift subs
   getGiftSubs() {
     return new Promise((resolve, reject) => {
       try {
         if (!fs.existsSync(this.giftSubsPath)) {
           return resolve({ giftSubs: [], stats: this.calculateGiftSubStats([]) });
+        }
+        
+        // First, let's check if the CSV file has the SpinCompletedCount column
+        const fileContent = fs.readFileSync(this.giftSubsPath, 'utf8');
+        const lines = fileContent.split('\n').filter(line => line.trim() !== '');
+        const header = lines[0];
+        
+        console.log('Gift subs CSV header:', header);
+        
+        // If the header doesn't include SpinCompletedCount, add it
+        let updatedHeader = header;
+        let updatedContent = false;
+        if (!header.includes('SpinCompletedCount')) {
+          console.log('Adding SpinCompletedCount column to header');
+          updatedHeader = header + ',SpinCompletedCount';
+          const updatedLines = [updatedHeader];
+          
+          // Add 0 as default value for all existing rows
+          for (let i = 1; i < lines.length; i++) {
+            updatedLines.push(lines[i] + ',0');
+          }
+          
+          // Write back to file
+          fs.writeFileSync(this.giftSubsPath, updatedLines.join('\n'));
+          console.log('Updated gift subs CSV with SpinCompletedCount column');
+          updatedContent = true;
         }
         
         const giftSubs = [];
@@ -255,26 +322,44 @@ class DataManager extends EventEmitter {
               ? row.RecipientUsernames.split(', ').filter(r => r.trim() !== '') 
               : [];
             
+            // Check if the CSV has the SpinCompletedCount column
+            const spinCompletedCount = row.hasOwnProperty('SpinCompletedCount') 
+              ? parseInt(row.SpinCompletedCount) || 0 
+              : 0;
+            
+            // Log each row being processed
+            console.log('Processing gift sub row:', row);
+            
             giftSubs.push({
               timestamp: row.Timestamp,
               username: row.Username,
               subCount: parseInt(row.SubCount),
               recipients: recipients,
-              spinTriggered: row.SpinTriggered === 'YES'
+              spinTriggered: row.SpinTriggered === 'YES',
+              spinCompletedCount: spinCompletedCount
             });
           })
           .on('end', () => {
+            console.log(`Loaded ${giftSubs.length} gift subs`);
+            // Log a sample gift sub if available
+            if (giftSubs.length > 0) {
+              console.log('Sample gift sub:', JSON.stringify(giftSubs[0]));
+            }
+            
             const stats = this.calculateGiftSubStats(giftSubs);
-            resolve({ giftSubs, stats });
+            resolve({ giftSubs, stats, updatedContent });
           })
           .on('error', (error) => {
+            console.error('Error parsing gift subs CSV:', error);
             reject(error);
           });
       } catch (error) {
+        console.error('Error in getGiftSubs:', error);
         reject(error);
       }
     });
   }
+  
   
   // Get spin commands
   getSpinCommands() {
@@ -855,207 +940,268 @@ class DataManager extends EventEmitter {
     }
   }
   
-  // Update donation spin completion count
-  async updateDonationSpinCompletion(timestamp, incrementAmount, resetFlag = false) {
-    return new Promise((resolve, reject) => {
-      try {
-        if (!fs.existsSync(this.bitDonationsPath)) {
-          return reject(new Error('Bit donations file not found'));
-        }
+ // Enhanced updateDonationSpinCompletion with better CSV handling
+async updateDonationSpinCompletion(timestamp, incrementAmount, resetFlag = false) {
+  return new Promise((resolve, reject) => {
+    try {
+      console.log(`Updating donation spin completion: timestamp=${timestamp}, increment=${incrementAmount}, reset=${resetFlag}`);
+      
+      if (!fs.existsSync(this.bitDonationsPath)) {
+        return reject(new Error('Bit donations file not found'));
+      }
+      
+      // Read the file content
+      const fileContent = fs.readFileSync(this.bitDonationsPath, 'utf8');
+      const lines = fileContent.split('\n').filter(line => line.trim() !== '');
+      
+      // Check if the header includes SpinCompletedCount column
+      let header = lines[0];
+      console.log('Current bit donations CSV header:', header);
+      
+      if (!header.includes('SpinCompletedCount')) {
+        // Add the column to the header
+        header = header.trim() + ',SpinCompletedCount';
+        lines[0] = header;
+        console.log('Updated header with SpinCompletedCount:', header);
+      }
+      
+      const dataLines = lines.slice(1);
+      
+      // Find and update the line with the matching timestamp
+      let updated = false;
+      let updatedDonation = null;
+      
+      const updatedLines = dataLines.map(line => {
+        // Use regex to handle CSVs with quoted fields containing commas
+        const regex = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+        const parts = line.split(regex);
         
-        const fileContent = fs.readFileSync(this.bitDonationsPath, 'utf8');
-        const lines = fileContent.split('\n').filter(line => line.trim() !== '');
+        console.log(`Checking line with parts:`, parts);
         
-        // Check if the header includes spinCompletedCount column
-        let header = lines[0];
-        if (!header.includes('SpinCompletedCount')) {
-          // Add the column to the header
-          header = header.trim() + ',SpinCompletedCount';
-          lines[0] = header;
-        }
-        
-        const dataLines = lines.slice(1);
-        
-        // Find and update the line with the matching timestamp
-        let updated = false;
-        let updatedDonation = null;
-        
-        const updatedLines = dataLines.map(line => {
-          // Use regex to handle CSVs with quoted fields containing commas
-          const regex = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
-          const parts = line.split(regex);
+        if (parts.length >= 5 && parts[0].trim() === timestamp.trim()) {
+          console.log(`Found matching donation line: ${line}`);
+          updated = true;
           
-          if (parts.length >= 5 && parts[0].trim() === timestamp.trim()) {
-            updated = true;
-            
-            // Check if the line already has the SpinCompletedCount column
-            let currentCompletedCount = 0;
-            if (parts.length >= 6) {
-              currentCompletedCount = parseInt(parts[5]) || 0;
-            }
-            
-            // Calculate new completed count
-            let newCompletedCount;
-            if (resetFlag) {
-              newCompletedCount = 0;
-            } else {
-              // Increment by the specified amount
-              newCompletedCount = currentCompletedCount + incrementAmount;
-              
-              // Ensure it doesn't exceed the maximum possible spins
-              const bits = parseInt(parts[2]);
-              const bitThreshold = this.config.bitThreshold || 1000;
-              const maxSpins = Math.floor(bits / bitThreshold);
-              newCompletedCount = Math.min(newCompletedCount, maxSpins);
-            }
-            
-            // Update or add the SpinCompletedCount column
-            if (parts.length >= 6) {
-              parts[5] = newCompletedCount.toString();
-            } else {
-              parts.push(newCompletedCount.toString());
-            }
-            
-            // Create donation object for tracking
-            updatedDonation = {
-              timestamp: parts[0],
-              username: parts[1].replace(/"/g, ''),
-              bits: parseInt(parts[2]),
-              message: parts[3].replace(/"/g, ''),
-              spinTriggered: parts[4].trim() === 'YES',
-              spinCompletedCount: newCompletedCount
-            };
-            
-            return parts.join(',');
+          // Check if the line already has the SpinCompletedCount column
+          let currentCompletedCount = 0;
+          if (parts.length >= 6) {
+            currentCompletedCount = parseInt(parts[5]) || 0;
           }
-          return line;
-        });
-        
-        if (!updated) {
-          return reject(new Error('Donation not found'));
+          console.log(`Current completed count: ${currentCompletedCount}`);
+          
+          // Calculate new completed count
+          let newCompletedCount;
+          if (resetFlag) {
+            newCompletedCount = 0;
+          } else {
+            // Increment by the specified amount
+            newCompletedCount = currentCompletedCount + incrementAmount;
+            
+            // Ensure it doesn't exceed the maximum possible spins
+            const bits = parseInt(parts[2]);
+            const bitThreshold = this.config.bitThreshold || 1000;
+            const maxSpins = Math.floor(bits / bitThreshold);
+            newCompletedCount = Math.min(newCompletedCount, maxSpins);
+          }
+          console.log(`New completed count: ${newCompletedCount}`);
+          
+          // Update or add the SpinCompletedCount column
+          if (parts.length >= 6) {
+            parts[5] = newCompletedCount.toString();
+          } else {
+            parts.push(newCompletedCount.toString());
+          }
+          
+          // Create donation object for tracking
+          updatedDonation = {
+            timestamp: parts[0],
+            username: parts[1].replace(/"/g, ''),
+            bits: parseInt(parts[2]),
+            message: parts[3].replace(/"/g, ''),
+            spinTriggered: parts[4].trim() === 'YES',
+            spinCompletedCount: newCompletedCount
+          };
+          
+          const updatedLine = parts.join(',');
+          console.log(`Updated line: ${updatedLine}`);
+          return updatedLine;
         }
-        
-        // Write back to file
-        const updatedContent = [header, ...updatedLines].join('\n');
-        fs.writeFileSync(this.bitDonationsPath, updatedContent);
-        
-        // Get updated donations and stats
-        this.getBitDonations()
-          .then(data => resolve({
+        return line;
+      });
+      
+      if (!updated) {
+        console.error(`Donation not found for timestamp: ${timestamp}`);
+        return reject(new Error('Donation not found for timestamp: ' + timestamp));
+      }
+      
+      // Write back to file
+      const updatedContent = [header, ...updatedLines].join('\n');
+      
+      // Log part of the content for debugging
+      console.log(`Updated content (first 200 chars): ${updatedContent.substring(0, 200)}...`);
+      
+      // Write the updated content
+      fs.writeFileSync(this.bitDonationsPath, updatedContent);
+      console.log('Wrote updated bit donations CSV file');
+      
+      // Verify the file was updated correctly
+      const verifyContent = fs.readFileSync(this.bitDonationsPath, 'utf8');
+      console.log(`Verification - file content (first 200 chars): ${verifyContent.substring(0, 200)}...`);
+      
+      // Get updated donations and stats
+      this.getBitDonations()
+        .then(data => {
+          console.log('Retrieved updated bit donations data');
+          resolve({
             success: true,
             message: 'Spin completion status updated successfully',
             ...data,
             updatedDonation
-          }))
-          .catch(error => reject(error));
-      } catch (error) {
-        reject(error);
-      }
-    });
-  }
-  
-  // Update gift sub spin completion count
-  async updateGiftSubSpinCompletion(timestamp, incrementAmount, resetFlag = false) {
-    return new Promise((resolve, reject) => {
-      try {
-        if (!fs.existsSync(this.giftSubsPath)) {
-          return reject(new Error('Gift subs file not found'));
-        }
-        
-        const fileContent = fs.readFileSync(this.giftSubsPath, 'utf8');
-        const lines = fileContent.split('\n').filter(line => line.trim() !== '');
-        
-        // Check if the header includes spinCompletedCount column
-        let header = lines[0];
-        if (!header.includes('SpinCompletedCount')) {
-          // Add the column to the header
-          header = header.trim() + ',SpinCompletedCount';
-          lines[0] = header;
-        }
-        
-        const dataLines = lines.slice(1);
-        
-        // Find and update the line with the matching timestamp
-        let updated = false;
-        let updatedGiftSub = null;
-        
-        const updatedLines = dataLines.map(line => {
-          // Use regex to handle CSVs with quoted fields containing commas
-          const regex = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
-          const parts = line.split(regex);
-          
-          if (parts.length >= 5 && parts[0].trim() === timestamp.trim()) {
-            updated = true;
-            
-            // Check if the line already has the SpinCompletedCount column
-            let currentCompletedCount = 0;
-            if (parts.length >= 6) {
-              currentCompletedCount = parseInt(parts[5]) || 0;
-            }
-            
-            // Calculate new completed count
-            let newCompletedCount;
-            if (resetFlag) {
-              newCompletedCount = 0;
-            } else {
-              // Increment by the specified amount
-              newCompletedCount = currentCompletedCount + incrementAmount;
-              
-              // Ensure it doesn't exceed the maximum possible spins
-              const subCount = parseInt(parts[2]);
-              const giftSubThreshold = this.config.giftSubThreshold || 3;
-              const maxSpins = Math.floor(subCount / giftSubThreshold);
-              newCompletedCount = Math.min(newCompletedCount, maxSpins);
-            }
-            
-            // Update or add the SpinCompletedCount column
-            if (parts.length >= 6) {
-              parts[5] = newCompletedCount.toString();
-            } else {
-              parts.push(newCompletedCount.toString());
-            }
-            
-            // Extract recipients
-            const recipients = parts[3].replace(/"/g, '').split(', ').filter(r => r.trim() !== '');
-            
-            // Create gift sub object for tracking
-            updatedGiftSub = {
-              timestamp: parts[0],
-              username: parts[1].replace(/"/g, ''),
-              subCount: parseInt(parts[2]),
-              recipients,
-              spinTriggered: parts[4].trim() === 'YES',
-              spinCompletedCount: newCompletedCount
-            };
-            
-            return parts.join(',');
-          }
-          return line;
+          });
+        })
+        .catch(error => {
+          console.error('Error retrieving updated bit donations:', error);
+          reject(error);
         });
+    } catch (error) {
+      console.error('Error updating donation spin completion:', error);
+      reject(error);
+    }
+  });
+}
+
+// Enhanced updateGiftSubSpinCompletion with similar improvements
+async updateGiftSubSpinCompletion(timestamp, incrementAmount, resetFlag = false) {
+  return new Promise((resolve, reject) => {
+    try {
+      console.log(`Updating gift sub spin completion: timestamp=${timestamp}, increment=${incrementAmount}, reset=${resetFlag}`);
+      
+      if (!fs.existsSync(this.giftSubsPath)) {
+        return reject(new Error('Gift subs file not found'));
+      }
+      
+      // Read the file content
+      const fileContent = fs.readFileSync(this.giftSubsPath, 'utf8');
+      const lines = fileContent.split('\n').filter(line => line.trim() !== '');
+      
+      // Check if the header includes SpinCompletedCount column
+      let header = lines[0];
+      console.log('Current gift sub CSV header:', header);
+      
+      if (!header.includes('SpinCompletedCount')) {
+        // Add the column to the header
+        header = header.trim() + ',SpinCompletedCount';
+        lines[0] = header;
+        console.log('Updated gift sub header with SpinCompletedCount:', header);
+      }
+      
+      const dataLines = lines.slice(1);
+      
+      // Find and update the line with the matching timestamp
+      let updated = false;
+      let updatedGiftSub = null;
+      
+      const updatedLines = dataLines.map(line => {
+        // Use regex to handle CSVs with quoted fields containing commas
+        const regex = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+        const parts = line.split(regex);
         
-        if (!updated) {
-          return reject(new Error('Gift sub not found'));
+        console.log(`Checking gift sub line with parts:`, parts);
+        
+        if (parts.length >= 5 && parts[0].trim() === timestamp.trim()) {
+          console.log(`Found matching gift sub line: ${line}`);
+          updated = true;
+          
+          // Check if the line already has the SpinCompletedCount column
+          let currentCompletedCount = 0;
+          if (parts.length >= 6) {
+            currentCompletedCount = parseInt(parts[5]) || 0;
+          }
+          console.log(`Current completed count: ${currentCompletedCount}`);
+          
+          // Calculate new completed count
+          let newCompletedCount;
+          if (resetFlag) {
+            newCompletedCount = 0;
+          } else {
+            // Increment by the specified amount
+            newCompletedCount = currentCompletedCount + incrementAmount;
+            
+            // Ensure it doesn't exceed the maximum possible spins
+            const subCount = parseInt(parts[2]);
+            const giftSubThreshold = this.config.giftSubThreshold || 3;
+            const maxSpins = Math.floor(subCount / giftSubThreshold);
+            newCompletedCount = Math.min(newCompletedCount, maxSpins);
+          }
+          console.log(`New completed count: ${newCompletedCount}`);
+          
+          // Update or add the SpinCompletedCount column
+          if (parts.length >= 6) {
+            parts[5] = newCompletedCount.toString();
+          } else {
+            parts.push(newCompletedCount.toString());
+          }
+          
+          // Extract recipients
+          const recipients = parts[3].replace(/"/g, '').split(', ').filter(r => r.trim() !== '');
+          
+          // Create gift sub object for tracking
+          updatedGiftSub = {
+            timestamp: parts[0],
+            username: parts[1].replace(/"/g, ''),
+            subCount: parseInt(parts[2]),
+            recipients,
+            spinTriggered: parts[4].trim() === 'YES',
+            spinCompletedCount: newCompletedCount
+          };
+          
+          const updatedLine = parts.join(',');
+          console.log(`Updated line: ${updatedLine}`);
+          return updatedLine;
         }
-        
-        // Write back to file
-        const updatedContent = [header, ...updatedLines].join('\n');
-        fs.writeFileSync(this.giftSubsPath, updatedContent);
-        
-        // Get updated gift subs and stats
-        this.getGiftSubs()
-          .then(data => resolve({
+        return line;
+      });
+      
+      if (!updated) {
+        console.error(`Gift sub not found for timestamp: ${timestamp}`);
+        return reject(new Error('Gift sub not found for timestamp: ' + timestamp));
+      }
+      
+      // Write back to file
+      const updatedContent = [header, ...updatedLines].join('\n');
+      
+      // Log part of the content for debugging
+      console.log(`Updated gift sub content (first 200 chars): ${updatedContent.substring(0, 200)}...`);
+      
+      // Write the updated content
+      fs.writeFileSync(this.giftSubsPath, updatedContent);
+      console.log('Wrote updated gift subs CSV file');
+      
+      // Verify the file was updated correctly
+      const verifyContent = fs.readFileSync(this.giftSubsPath, 'utf8');
+      console.log(`Verification - gift sub file content (first 200 chars): ${verifyContent.substring(0, 200)}...`);
+      
+      // Get updated gift subs and stats
+      this.getGiftSubs()
+        .then(data => {
+          console.log('Retrieved updated gift subs data');
+          resolve({
             success: true,
             message: 'Gift sub spin completion status updated successfully',
             ...data,
             updatedGiftSub
-          }))
-          .catch(error => reject(error));
-      } catch (error) {
-        reject(error);
-      }
-    });
-  }
-  
+          });
+        })
+        .catch(error => {
+          console.error('Error retrieving updated gift subs:', error);
+          reject(error);
+        });
+    } catch (error) {
+      console.error('Error updating gift sub spin completion:', error);
+      reject(error);
+    }
+  });
+}
   // Export spin tracker as CSV
   async exportSpinTrackerCSV(outputPath) {
     try {

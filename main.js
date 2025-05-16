@@ -8,6 +8,136 @@ const DataManager = require('./data-manager');
 let mainWindow;
 let twitchClient;
 let dataManager;
+// Connection status tracking variable
+let twitchConnectionStatus = {
+  connected: false,
+  connecting: false,
+  lastAttempt: null,
+  error: null
+};
+// Add new IPC handlers for connection status
+function setupConnectionHandlers() {
+  // Get current connection status
+  ipcMain.handle('get-connection-status', () => {
+    return twitchConnectionStatus;
+  });
+
+  // Update connection status event handler
+  ipcMain.on('connection-status-update', (event, status) => {
+    console.log('Connection status update:', status);
+    
+    // Update the status
+    if (status.status === 'connecting') {
+      twitchConnectionStatus.connecting = true;
+      twitchConnectionStatus.lastAttempt = new Date();
+    } else if (status.status === 'disconnecting') {
+      twitchConnectionStatus.connecting = false;
+    } else if (status.status === 'timeout') {
+      twitchConnectionStatus.connecting = false;
+      twitchConnectionStatus.error = 'Connection attempt timed out';
+    }
+    
+    // Forward the update to the renderer
+    if (mainWindow) {
+      mainWindow.webContents.send('connection-status-update', twitchConnectionStatus);
+    }
+  });
+  
+  // Updated connect to Twitch handler
+  ipcMain.handle('connect-to-twitch', async () => {
+    try {
+      // Check if already connecting or connected
+      if (twitchConnectionStatus.connecting) {
+        console.log('Connection already in progress, ignoring request');
+        return { success: false, message: 'Connection already in progress' };
+      }
+      
+      // Mark as connecting
+      twitchConnectionStatus.connecting = true;
+      twitchConnectionStatus.lastAttempt = new Date();
+      
+      // Forward status to renderer
+      if (mainWindow) {
+        mainWindow.webContents.send('connection-status-update', twitchConnectionStatus);
+      }
+      
+      // Connect to Twitch
+      const result = await twitchClient.connect();
+      
+      // Update status based on result
+      twitchConnectionStatus.connecting = false;
+      twitchConnectionStatus.connected = result.success;
+      twitchConnectionStatus.error = result.success ? null : result.message;
+      
+      // Forward status to renderer
+      if (mainWindow) {
+        mainWindow.webContents.send('connection-status-update', twitchConnectionStatus);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Error connecting to Twitch:', error);
+      
+      // Update status
+      twitchConnectionStatus.connecting = false;
+      twitchConnectionStatus.connected = false;
+      twitchConnectionStatus.error = error.message;
+      
+      // Forward status to renderer
+      if (mainWindow) {
+        mainWindow.webContents.send('connection-status-update', twitchConnectionStatus);
+      }
+      
+      throw error;
+    }
+  });
+  
+  // Updated disconnect from Twitch handler
+  ipcMain.handle('disconnect-from-twitch', async () => {
+    try {
+      // Check if already disconnected
+      if (!twitchConnectionStatus.connected && !twitchConnectionStatus.connecting) {
+        console.log('Already disconnected, ignoring request');
+        return { success: true, message: 'Already disconnected' };
+      }
+      
+      // Mark as disconnecting
+      twitchConnectionStatus.connecting = false;
+      
+      // Forward status to renderer
+      if (mainWindow) {
+        mainWindow.webContents.send('connection-status-update', twitchConnectionStatus);
+      }
+      
+      // Disconnect from Twitch
+      const result = await twitchClient.disconnect();
+      
+      // Update status based on result
+      twitchConnectionStatus.connected = false;
+      twitchConnectionStatus.error = null;
+      
+      // Forward status to renderer
+      if (mainWindow) {
+        mainWindow.webContents.send('connection-status-update', twitchConnectionStatus);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Error disconnecting from Twitch:', error);
+      
+      // Update status
+      twitchConnectionStatus.connected = false;
+      twitchConnectionStatus.error = error.message;
+      
+      // Forward status to renderer
+      if (mainWindow) {
+        mainWindow.webContents.send('connection-status-update', twitchConnectionStatus);
+      }
+      
+      throw error;
+    }
+  });
+}
 
 // Initialize data directory
 const appDataPath = path.join(app.getPath('userData'), 'data');
@@ -174,12 +304,11 @@ function setupIPC() {
   ipcMain.handle('get-config', () => {
     return dataManager.getConfig();
   });
-
+  
   // Save configuration
   ipcMain.handle('save-config', (event, config) => {
     return dataManager.saveConfig(config);
   });
-
   // Get bit donations
   ipcMain.handle('get-bit-donations', () => {
     return dataManager.getBitDonations();
@@ -225,15 +354,17 @@ function setupIPC() {
     return dataManager.createTestSpinCommand(data);
   });
 
+  // // Connect to Twitch
+  // ipcMain.handle('connect-to-twitch', () => {
+  //   return twitchClient.connect();
+  // });
+  setupConnectionHandlers();
   // Connect to Twitch
-  ipcMain.handle('connect-to-twitch', () => {
-    return twitchClient.connect();
-  });
 
-  // Disconnect from Twitch
-  ipcMain.handle('disconnect-from-twitch', () => {
-    return twitchClient.disconnect();
-  });
+  // // Disconnect from Twitch
+  // ipcMain.handle('disconnect-from-twitch', () => {
+  //   return twitchClient.disconnect();
+  // });
 
   // Get spin tracker data
   ipcMain.handle('get-spin-tracker-data', () => {
