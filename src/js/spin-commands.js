@@ -156,4 +156,4 @@ document.addEventListener('DOMContentLoaded', async function() {
     initialize();
     setupEventListeners();
     cleanupEventListeners();
-  });np
+  });

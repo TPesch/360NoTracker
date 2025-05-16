@@ -306,6 +306,100 @@ class DataManager extends EventEmitter {
       }
     });
   }
+  // Get spin tracker data
+  getSpinTrackerData() {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const spinTrackerItems = [];
+      const bitThreshold = this.config.bitThreshold || 1000;
+      const giftSubThreshold = this.config.giftSubThreshold || 3;
+      
+      // Get bit donations and calculate spins
+      const bitData = await this.getBitDonations();
+      const giftSubData = await this.getGiftSubs();
+      
+      // Process bit donations
+      bitData.donations.forEach(donation => {
+        if (donation.bits >= bitThreshold) {
+          const spinCount = Math.floor(donation.bits / bitThreshold);
+          
+          // Get completed count from spin status (default to 0 if not defined)
+          const completedCount = donation.spinCompletedCount || 0;
+          
+          spinTrackerItems.push({
+            id: `bit_${donation.timestamp}`,
+            timestamp: donation.timestamp,
+            username: donation.username,
+            type: 'bits',
+            amount: donation.bits,
+            spinCount,
+            completedCount,
+            message: donation.message
+          });
+        }
+      });
+      
+      // Process gift subs
+      giftSubData.giftSubs.forEach(giftSub => {
+        if (giftSub.subCount >= giftSubThreshold) {
+          const spinCount = Math.floor(giftSub.subCount / giftSubThreshold);
+          
+          // Get completed count from spin status (default to 0 if not defined)
+          const completedCount = giftSub.spinCompletedCount || 0;
+          
+          spinTrackerItems.push({
+            id: `giftsub_${giftSub.timestamp}`,
+            timestamp: giftSub.timestamp,
+            username: giftSub.username,
+            type: 'giftsubs',
+            amount: giftSub.subCount,
+            spinCount,
+            completedCount
+          });
+        }
+      });
+      
+      // Sort by timestamp (newest first)
+      spinTrackerItems.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      
+      resolve({ items: spinTrackerItems });
+    } catch (error) {
+      reject(error);
+    }
+  });
+  }
+  // Complete a spin
+  async completeSpin(id) {
+    try {
+      // Parse the ID to determine type
+      const [type, timestamp] = id.split('_');
+      
+      if (type === 'bit') {
+        // Get the bit donation and update completed count
+        const result = await this.updateDonationSpinCompletion(timestamp, 1);
+        
+        if (result.success) {
+          this.emit('spin-status-update', { type: 'bit', timestamp });
+        }
+        
+        return result;
+      } else if (type === 'giftsub') {
+        // Get the gift sub and update completed count
+        const result = await this.updateGiftSubSpinCompletion(timestamp, 1);
+        
+        if (result.success) {
+          this.emit('spin-status-update', { type: 'giftsub', timestamp });
+        }
+        
+        return result;
+      }
+      
+      return { success: false, error: 'Invalid ID type' };
+    } catch (error) {
+      console.error('Error completing spin:', error);
+      return { success: false, error: error.message };
+    }
+  }
   
   // Calculate bit donation statistics
   calculateDonationStats(donations) {
@@ -696,6 +790,311 @@ class DataManager extends EventEmitter {
     const { username = 'TestMod', targetUsername = 'TestUser' } = data;
     const command = `!spin ${targetUsername}`;
     return this.recordSpinCommand(username, command);
+  }
+  
+  // Reset spins for an item
+  async resetSpins(id) {
+    try {
+      // Parse the ID to determine type
+      const [type, timestamp] = id.split('_');
+      
+      if (type === 'bit') {
+        // Reset completion count to 0
+        const result = await this.updateDonationSpinCompletion(timestamp, 0, true);
+        
+        if (result.success) {
+          this.emit('spin-status-update', { type: 'bit', timestamp });
+        }
+        
+        return result;
+      } else if (type === 'giftsub') {
+        // Reset completion count to 0
+        const result = await this.updateGiftSubSpinCompletion(timestamp, 0, true);
+        
+        if (result.success) {
+          this.emit('spin-status-update', { type: 'giftsub', timestamp });
+        }
+        
+        return result;
+      }
+      
+      return { success: false, error: 'Invalid ID type' };
+    } catch (error) {
+      console.error('Error resetting spins:', error);
+      return { success: false, error: error.message };
+    }
+  }
+  
+  // Clear all completed spins
+  async clearCompletedSpins() {
+    try {
+      // Get all bit donations and gift subs
+      const bitData = await this.getBitDonations();
+      const giftSubData = await this.getGiftSubs();
+      
+      // Process bit donations
+      for (const donation of bitData.donations) {
+        if (donation.spinCompletedCount && donation.spinCompletedCount > 0) {
+          await this.updateDonationSpinCompletion(donation.timestamp, 0, true);
+        }
+      }
+      
+      // Process gift subs
+      for (const giftSub of giftSubData.giftSubs) {
+        if (giftSub.spinCompletedCount && giftSub.spinCompletedCount > 0) {
+          await this.updateGiftSubSpinCompletion(giftSub.timestamp, 0, true);
+        }
+      }
+      
+      this.emit('spin-status-update', { type: 'all' });
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error clearing completed spins:', error);
+      return { success: false, error: error.message };
+    }
+  }
+  
+  // Update donation spin completion count
+  async updateDonationSpinCompletion(timestamp, incrementAmount, resetFlag = false) {
+    return new Promise((resolve, reject) => {
+      try {
+        if (!fs.existsSync(this.bitDonationsPath)) {
+          return reject(new Error('Bit donations file not found'));
+        }
+        
+        const fileContent = fs.readFileSync(this.bitDonationsPath, 'utf8');
+        const lines = fileContent.split('\n').filter(line => line.trim() !== '');
+        
+        // Check if the header includes spinCompletedCount column
+        let header = lines[0];
+        if (!header.includes('SpinCompletedCount')) {
+          // Add the column to the header
+          header = header.trim() + ',SpinCompletedCount';
+          lines[0] = header;
+        }
+        
+        const dataLines = lines.slice(1);
+        
+        // Find and update the line with the matching timestamp
+        let updated = false;
+        let updatedDonation = null;
+        
+        const updatedLines = dataLines.map(line => {
+          // Use regex to handle CSVs with quoted fields containing commas
+          const regex = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+          const parts = line.split(regex);
+          
+          if (parts.length >= 5 && parts[0].trim() === timestamp.trim()) {
+            updated = true;
+            
+            // Check if the line already has the SpinCompletedCount column
+            let currentCompletedCount = 0;
+            if (parts.length >= 6) {
+              currentCompletedCount = parseInt(parts[5]) || 0;
+            }
+            
+            // Calculate new completed count
+            let newCompletedCount;
+            if (resetFlag) {
+              newCompletedCount = 0;
+            } else {
+              // Increment by the specified amount
+              newCompletedCount = currentCompletedCount + incrementAmount;
+              
+              // Ensure it doesn't exceed the maximum possible spins
+              const bits = parseInt(parts[2]);
+              const bitThreshold = this.config.bitThreshold || 1000;
+              const maxSpins = Math.floor(bits / bitThreshold);
+              newCompletedCount = Math.min(newCompletedCount, maxSpins);
+            }
+            
+            // Update or add the SpinCompletedCount column
+            if (parts.length >= 6) {
+              parts[5] = newCompletedCount.toString();
+            } else {
+              parts.push(newCompletedCount.toString());
+            }
+            
+            // Create donation object for tracking
+            updatedDonation = {
+              timestamp: parts[0],
+              username: parts[1].replace(/"/g, ''),
+              bits: parseInt(parts[2]),
+              message: parts[3].replace(/"/g, ''),
+              spinTriggered: parts[4].trim() === 'YES',
+              spinCompletedCount: newCompletedCount
+            };
+            
+            return parts.join(',');
+          }
+          return line;
+        });
+        
+        if (!updated) {
+          return reject(new Error('Donation not found'));
+        }
+        
+        // Write back to file
+        const updatedContent = [header, ...updatedLines].join('\n');
+        fs.writeFileSync(this.bitDonationsPath, updatedContent);
+        
+        // Get updated donations and stats
+        this.getBitDonations()
+          .then(data => resolve({
+            success: true,
+            message: 'Spin completion status updated successfully',
+            ...data,
+            updatedDonation
+          }))
+          .catch(error => reject(error));
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+  
+  // Update gift sub spin completion count
+  async updateGiftSubSpinCompletion(timestamp, incrementAmount, resetFlag = false) {
+    return new Promise((resolve, reject) => {
+      try {
+        if (!fs.existsSync(this.giftSubsPath)) {
+          return reject(new Error('Gift subs file not found'));
+        }
+        
+        const fileContent = fs.readFileSync(this.giftSubsPath, 'utf8');
+        const lines = fileContent.split('\n').filter(line => line.trim() !== '');
+        
+        // Check if the header includes spinCompletedCount column
+        let header = lines[0];
+        if (!header.includes('SpinCompletedCount')) {
+          // Add the column to the header
+          header = header.trim() + ',SpinCompletedCount';
+          lines[0] = header;
+        }
+        
+        const dataLines = lines.slice(1);
+        
+        // Find and update the line with the matching timestamp
+        let updated = false;
+        let updatedGiftSub = null;
+        
+        const updatedLines = dataLines.map(line => {
+          // Use regex to handle CSVs with quoted fields containing commas
+          const regex = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+          const parts = line.split(regex);
+          
+          if (parts.length >= 5 && parts[0].trim() === timestamp.trim()) {
+            updated = true;
+            
+            // Check if the line already has the SpinCompletedCount column
+            let currentCompletedCount = 0;
+            if (parts.length >= 6) {
+              currentCompletedCount = parseInt(parts[5]) || 0;
+            }
+            
+            // Calculate new completed count
+            let newCompletedCount;
+            if (resetFlag) {
+              newCompletedCount = 0;
+            } else {
+              // Increment by the specified amount
+              newCompletedCount = currentCompletedCount + incrementAmount;
+              
+              // Ensure it doesn't exceed the maximum possible spins
+              const subCount = parseInt(parts[2]);
+              const giftSubThreshold = this.config.giftSubThreshold || 3;
+              const maxSpins = Math.floor(subCount / giftSubThreshold);
+              newCompletedCount = Math.min(newCompletedCount, maxSpins);
+            }
+            
+            // Update or add the SpinCompletedCount column
+            if (parts.length >= 6) {
+              parts[5] = newCompletedCount.toString();
+            } else {
+              parts.push(newCompletedCount.toString());
+            }
+            
+            // Extract recipients
+            const recipients = parts[3].replace(/"/g, '').split(', ').filter(r => r.trim() !== '');
+            
+            // Create gift sub object for tracking
+            updatedGiftSub = {
+              timestamp: parts[0],
+              username: parts[1].replace(/"/g, ''),
+              subCount: parseInt(parts[2]),
+              recipients,
+              spinTriggered: parts[4].trim() === 'YES',
+              spinCompletedCount: newCompletedCount
+            };
+            
+            return parts.join(',');
+          }
+          return line;
+        });
+        
+        if (!updated) {
+          return reject(new Error('Gift sub not found'));
+        }
+        
+        // Write back to file
+        const updatedContent = [header, ...updatedLines].join('\n');
+        fs.writeFileSync(this.giftSubsPath, updatedContent);
+        
+        // Get updated gift subs and stats
+        this.getGiftSubs()
+          .then(data => resolve({
+            success: true,
+            message: 'Gift sub spin completion status updated successfully',
+            ...data,
+            updatedGiftSub
+          }))
+          .catch(error => reject(error));
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+  
+  // Export spin tracker as CSV
+  async exportSpinTrackerCSV(outputPath) {
+    try {
+      // Get spin tracker data
+      const { items } = await this.getSpinTrackerData();
+      
+      // Create CSV writer
+      const csvWriter = createObjectCsvWriter({
+        path: outputPath,
+        header: [
+          { id: 'date', title: 'Date' },
+          { id: 'username', title: 'Username' },
+          { id: 'type', title: 'Type' },
+          { id: 'amount', title: 'Amount' },
+          { id: 'spinsEarned', title: 'Spins Earned' },
+          { id: 'completed', title: 'Spins Completed' },
+          { id: 'pending', title: 'Spins Pending' }
+        ]
+      });
+      
+      // Format data for CSV
+      const records = items.map(item => ({
+        date: new Date(item.timestamp).toLocaleString(),
+        username: item.username,
+        type: item.type === 'bits' ? 'Bit Donation' : 'Gift Subs',
+        amount: item.type === 'bits' ? `${item.amount} bits` : `${item.amount} subs`,
+        spinsEarned: item.spinCount,
+        completed: item.completedCount,
+        pending: item.spinCount - item.completedCount
+      }));
+      
+      // Write CSV
+      await csvWriter.writeRecords(records);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error exporting spin tracker CSV:', error);
+      throw error;
+    }
   }
   
   // Export CSV by type
