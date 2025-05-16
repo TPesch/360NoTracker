@@ -1,0 +1,457 @@
+// Main renderer script for the dashboard
+document.addEventListener('DOMContentLoaded', async function() {
+  // Elements
+  const channelNameEl = document.getElementById('channel-name');
+  const connectionStatusEl = document.getElementById('connection-status');
+  const connectButton = document.getElementById('connect-twitch');
+  const disconnectButton = document.getElementById('disconnect-twitch');
+  const activityFeedEl = document.getElementById('activity-feed');
+  const spinAlertEl = document.getElementById('spin-alert');
+  const spinAlertMessageEl = document.getElementById('spin-alert-message');
+  
+  // Stats elements
+  const totalDonationsEl = document.getElementById('total-donations');
+  const totalBitsEl = document.getElementById('total-bits');
+  const totalSpinsEl = document.getElementById('total-spins');
+  const topDonatorEl = document.getElementById('top-donator');
+  
+  const totalGiftSubsEl = document.getElementById('total-gift-subs');
+  const giftSubSpinsEl = document.getElementById('gift-sub-spins');
+  const topGifterEl = document.getElementById('top-gifter');
+  const giftThresholdEl = document.getElementById('gift-threshold');
+  
+  const totalCommandsEl = document.getElementById('total-commands');
+  const uniqueUsersEl = document.getElementById('unique-users');
+  
+  // Navigation buttons
+  const navDashboardBtn = document.getElementById('nav-dashboard');
+  const navDonationsBtn = document.getElementById('nav-donations');
+  const navGiftSubsBtn = document.getElementById('nav-gift-subs');
+  const navSpinCommandsBtn = document.getElementById('nav-spin-commands');
+  const navSpinTrackerBtn = document.getElementById('nav-spin-tracker');
+  const navSettingsBtn = document.getElementById('nav-settings');
+  
+  // Export buttons
+  const exportDonationsBtn = document.getElementById('export-donations');
+  const exportGiftSubsBtn = document.getElementById('export-gift-subs');
+  const exportSpinCommandsBtn = document.getElementById('export-spin-commands');
+  
+  // Test buttons
+  const testDonationBtn = document.getElementById('test-donation');
+  const testGiftSubBtn = document.getElementById('test-gift-sub');
+  const testSpinCommandBtn = document.getElementById('test-spin-command');
+  
+  // Navigation handlers
+  navDashboardBtn.addEventListener('click', () => {
+    window.location.href = 'index.html';
+  });
+  
+  navDonationsBtn.addEventListener('click', () => {
+    window.location.href = 'donations.html';
+  });
+  
+  navGiftSubsBtn.addEventListener('click', () => {
+    window.location.href = 'gift-subs.html';
+  });
+  
+  navSpinCommandsBtn.addEventListener('click', () => {
+    window.location.href = 'spin-commands.html';
+  });
+  
+  navSpinTrackerBtn.addEventListener('click', () => {
+    window.location.href = 'spin-tracker.html';
+  });
+  
+  navSettingsBtn.addEventListener('click', () => {
+    window.location.href = 'settings.html';
+  });
+  
+  // Export handlers
+  exportDonationsBtn.addEventListener('click', () => {
+    exportCSV('bit_donations');
+  });
+  
+  exportGiftSubsBtn.addEventListener('click', () => {
+    exportCSV('gift_subs');
+  });
+  
+  exportSpinCommandsBtn.addEventListener('click', () => {
+    exportCSV('spin_commands');
+  });
+  
+  // Test handlers
+  testDonationBtn.addEventListener('click', () => {
+    createTestDonation();
+  });
+  
+  testGiftSubBtn.addEventListener('click', () => {
+    createTestGiftSub();
+  });
+  
+  testSpinCommandBtn.addEventListener('click', () => {
+    createTestSpinCommand();
+  });
+  
+  // Connect/disconnect handlers
+  connectButton.addEventListener('click', () => {
+    connectToTwitch();
+  });
+  
+  disconnectButton.addEventListener('click', () => {
+    disconnectFromTwitch();
+  });
+  
+  // Format timestamp
+  function formatTimestamp(timestamp) {
+    const date = new Date(timestamp);
+    return date.toLocaleString();
+  }
+  
+  // Add activity item to feed
+  function addActivityItem(type, data) {
+    // Create activity item element
+    const activityItem = document.createElement('div');
+    activityItem.className = `activity-item ${type}`;
+    
+    // Create timestamp element
+    const timestampEl = document.createElement('div');
+    timestampEl.className = 'timestamp';
+    timestampEl.textContent = formatTimestamp(data.timestamp);
+    
+    // Create content element
+    const contentEl = document.createElement('div');
+    contentEl.className = 'content';
+    
+    // Create different content based on type
+    switch (type) {
+      case 'donation':
+        contentEl.innerHTML = `
+          <span class="username">${escapeHtml(data.username)}</span> 
+          donated <strong>${data.bits} bits</strong>
+          ${data.spinTriggered ? '<span class="spin-triggered">(SPIN TRIGGERED)</span>' : ''}
+        `;
+        
+        if (data.message) {
+          const messageEl = document.createElement('div');
+          messageEl.className = 'message';
+          messageEl.textContent = data.message;
+          contentEl.appendChild(messageEl);
+        }
+        break;
+        
+      case 'gift-sub':
+        contentEl.innerHTML = `
+          <span class="username">${escapeHtml(data.username)}</span> 
+          gifted <strong>${data.subCount} subs</strong>
+          ${data.spinTriggered ? '<span class="spin-triggered">(SPIN TRIGGERED)</span>' : ''}
+        `;
+        break;
+        
+      case 'spin-command':
+        contentEl.innerHTML = `
+          <span class="username">${escapeHtml(data.username)}</span> 
+          used command: <strong>${escapeHtml(data.command)}</strong>
+        `;
+        break;
+        
+      case 'spin-alert':
+        contentEl.innerHTML = `
+          <strong>SPIN ALERT!</strong> 
+          <span class="username">${escapeHtml(data.username)}</span> 
+          ${data.isGiftSub 
+            ? `gifted ${data.subCount} subs!` 
+            : `donated ${data.bits} bits!`}
+        `;
+        break;
+        
+      default:
+        contentEl.textContent = JSON.stringify(data);
+    }
+    
+    // Append elements to activity item
+    activityItem.appendChild(timestampEl);
+    activityItem.appendChild(contentEl);
+    
+    // Add to activity feed
+    activityFeedEl.insertBefore(activityItem, activityFeedEl.firstChild);
+    
+    // Limit number of items
+    if (activityFeedEl.children.length > 50) {
+      activityFeedEl.removeChild(activityFeedEl.lastChild);
+    }
+    
+    // Remove empty state if present
+    const emptyState = activityFeedEl.querySelector('.empty-state');
+    if (emptyState) {
+      activityFeedEl.removeChild(emptyState);
+    }
+  }
+  
+  // Show spin alert
+  function showSpinAlert(data) {
+    // Update alert message
+    if (data.isGiftSub) {
+      spinAlertMessageEl.textContent = `${data.username} gifted ${data.subCount} subs! Time to SPIN!`;
+    } else {
+      spinAlertMessageEl.textContent = `${data.username} donated ${data.bits} bits! Time to SPIN!`;
+    }
+    
+    // Show alert
+    spinAlertEl.style.display = 'block';
+    
+    // Add to activity feed
+    addActivityItem('spin-alert', data);
+    
+    // Hide after 10 seconds
+    setTimeout(() => {
+      spinAlertEl.style.display = 'none';
+    }, 10000);
+  }
+  
+  // Update connection status
+  function updateConnectionStatus(status) {
+    // Update status text and class
+    connectionStatusEl.textContent = status.connected ? 'Connected' : 'Disconnected';
+    connectionStatusEl.className = 'status-value ' + (status.connected ? 'connected' : 'disconnected');
+    
+    // Enable/disable buttons
+    connectButton.disabled = status.connected;
+    disconnectButton.disabled = !status.connected;
+    
+    // Update channel name if connected
+    if (status.connected && status.channel) {
+      channelNameEl.textContent = status.channel;
+    }
+  }
+  
+  // Update donation stats
+  function updateDonationStats(stats) {
+    if (!stats) return;
+    
+    totalDonationsEl.textContent = stats.totalDonations || 0;
+    totalBitsEl.textContent = stats.totalBits || 0;
+    totalSpinsEl.textContent = stats.totalSpins || 0;
+    
+    if (stats.topDonator && stats.topDonator !== 'None') {
+      topDonatorEl.textContent = `${stats.topDonator} (${stats.topDonatorBits || 0} bits)`;
+    } else {
+      topDonatorEl.textContent = 'None yet';
+    }
+  }
+  
+  // Update gift sub stats
+  function updateGiftSubStats(stats) {
+    if (!stats) return;
+    
+    totalGiftSubsEl.textContent = stats.totalGiftSubs || 0;
+    giftSubSpinsEl.textContent = stats.totalSpins || 0;
+    
+    if (stats.topGifter && stats.topGifter !== 'None') {
+      topGifterEl.textContent = `${stats.topGifter} (${stats.topGifterSubs || 0} subs)`;
+    } else {
+      topGifterEl.textContent = 'None yet';
+    }
+  }
+  
+  // Update spin command stats
+  function updateSpinCommandStats(stats) {
+    if (!stats) return;
+    
+    totalCommandsEl.textContent = stats.totalCommands || 0;
+    uniqueUsersEl.textContent = stats.uniqueUsers || 0;
+  }
+  
+  // Escape HTML
+  function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+  
+  // Export CSV
+  async function exportCSV(type) {
+    try {
+      const result = await window.electronAPI.exportCSV(type);
+      if (result.success) {
+        console.log(`Exported ${type} data successfully`);
+      }
+    } catch (error) {
+      console.error(`Error exporting ${type} data:`, error);
+    }
+  }
+  
+  // Connect to Twitch
+  async function connectToTwitch() {
+    try {
+      // Update status
+      connectionStatusEl.textContent = 'Connecting...';
+      connectionStatusEl.className = 'status-value connecting';
+      
+      // Connect
+      const result = await window.electronAPI.connectToTwitch();
+      console.log('Connect result:', result);
+    } catch (error) {
+      console.error('Error connecting to Twitch:', error);
+      
+      // Update status
+      connectionStatusEl.textContent = 'Connection failed';
+      connectionStatusEl.className = 'status-value disconnected';
+    }
+  }
+  
+  // Disconnect from Twitch
+  async function disconnectFromTwitch() {
+    try {
+      const result = await window.electronAPI.disconnectFromTwitch();
+      console.log('Disconnect result:', result);
+    } catch (error) {
+      console.error('Error disconnecting from Twitch:', error);
+    }
+  }
+  
+  // Create test donation
+  async function createTestDonation() {
+    try {
+      const donation = await window.electronAPI.createTestDonation({
+        username: 'TestUser',
+        bits: 1000,
+        message: 'This is a test donation',
+      });
+      
+      console.log('Test donation created:', donation);
+    } catch (error) {
+      console.error('Error creating test donation:', error);
+    }
+  }
+  
+  // Create test gift sub
+  async function createTestGiftSub() {
+    try {
+      const giftSub = await window.electronAPI.createTestGiftSub({
+        username: 'TestUser',
+        subCount: 3,
+        recipients: ['Recipient1', 'Recipient2', 'Recipient3'],
+      });
+      
+      console.log('Test gift sub created:', giftSub);
+    } catch (error) {
+      console.error('Error creating test gift sub:', error);
+    }
+  }
+  
+  // Create test spin command
+  async function createTestSpinCommand() {
+    try {
+      const command = await window.electronAPI.createTestSpinCommand({
+        username: 'TestMod',
+        targetUsername: 'TestUser',
+      });
+      
+      console.log('Test spin command created:', command);
+    } catch (error) {
+      console.error('Error creating test spin command:', error);
+    }
+  }
+  
+  // Initialize
+  async function initialize() {
+    try {
+      // Get configuration
+      const config = await window.electronAPI.getConfig();
+      console.log('Config:', config);
+      
+      // Update channel name
+      channelNameEl.textContent = config.channelName || 'Not set';
+      
+      // Update threshold display
+      giftThresholdEl.textContent = `${config.giftSubThreshold || 3}+ subs`;
+      
+      // Load donation data
+      const donationData = await window.electronAPI.getBitDonations();
+      console.log('Donation data:', donationData);
+      updateDonationStats(donationData.stats);
+      
+      // Load gift sub data
+      const giftSubData = await window.electronAPI.getGiftSubs();
+      console.log('Gift sub data:', giftSubData);
+      updateGiftSubStats(giftSubData.stats);
+      
+      // Load spin command data
+      const spinCommandData = await window.electronAPI.getSpinCommands();
+      console.log('Spin command data:', spinCommandData);
+      updateSpinCommandStats(spinCommandData.stats);
+      
+      // Connect to Twitch if auto-connect is enabled
+      if (config.autoConnect) {
+        connectToTwitch();
+      }
+    } catch (error) {
+      console.error('Error initializing:', error);
+    }
+  }
+  
+  // Set up event listeners for real-time updates
+  function setupEventListeners() {
+    // New donation
+    window.electronAPI.onNewDonation((donation) => {
+      console.log('New donation:', donation);
+      addActivityItem('donation', donation);
+      
+      // Refresh stats
+      window.electronAPI.getBitDonations()
+        .then(data => updateDonationStats(data.stats))
+        .catch(error => console.error('Error updating donation stats:', error));
+    });
+    
+    // New gift sub
+    window.electronAPI.onNewGiftSub((giftSub) => {
+      console.log('New gift sub:', giftSub);
+      addActivityItem('gift-sub', giftSub);
+      
+      // Refresh stats
+      window.electronAPI.getGiftSubs()
+        .then(data => updateGiftSubStats(data.stats))
+        .catch(error => console.error('Error updating gift sub stats:', error));
+    });
+    
+    // New spin command
+    window.electronAPI.onNewSpinCommand((command) => {
+      console.log('New spin command:', command);
+      addActivityItem('spin-command', command);
+      
+      // Refresh stats
+      window.electronAPI.getSpinCommands()
+        .then(data => updateSpinCommandStats(data.stats))
+        .catch(error => console.error('Error updating spin command stats:', error));
+    });
+    
+    // Spin alert
+    window.electronAPI.onSpinAlert((data) => {
+      console.log('Spin alert:', data);
+      showSpinAlert(data);
+    });
+    
+    // Twitch connection status
+    window.electronAPI.onTwitchConnectionStatus((status) => {
+      console.log('Twitch connection status:', status);
+      updateConnectionStatus(status);
+    });
+  }
+  
+  // Clean up event listeners when navigating away
+  function cleanupEventListeners() {
+    window.addEventListener('beforeunload', () => {
+      window.electronAPI.removeAllListeners('new-donation');
+      window.electronAPI.removeAllListeners('new-gift-sub');
+      window.electronAPI.removeAllListeners('new-spin-command');
+      window.electronAPI.removeAllListeners('spin-alert');
+      window.electronAPI.removeAllListeners('twitch-connection-status');
+    });
+  }
+  
+  // Initialize and set up
+  initialize();
+  setupEventListeners();
+  cleanupEventListeners();
+});

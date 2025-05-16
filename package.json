@@ -1,0 +1,50 @@
+{
+  "name": "twitch-donation-tracker",
+  "version": "1.0.0",
+  "description": "A local Electron app to track Twitch donations and gift subs",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "keywords": [
+    "twitch",
+    "donations",
+    "tracker"
+  ],
+  "author": "Tomas Pesch",
+  "license": "ISC",
+  "dependencies": {
+    "csv-parser": "^3.0.0",
+    "csv-writer": "^1.6.0",
+    "electron-store": "^8.1.0",
+    "socket.io": "^4.8.1",
+    "tmi.js": "^1.8.5"
+  },
+  "devDependencies": {
+    "electron": "^31.1.0",
+    "electron-builder": "^24.13.1"
+  },
+  "build": {
+    "appId": "com.tomas.twitchdonationtracker",
+    "productName": "Twitch Donation Tracker",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!data${/*}"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}
