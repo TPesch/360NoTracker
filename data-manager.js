@@ -385,7 +385,350 @@ class DataManager extends EventEmitter {
     });
   }
   
-  
+  // Import bit donations from CSV
+  importBitDonations(csvData) {
+    return new Promise((resolve, reject) => {
+      try {
+        // Parse CSV data
+        const rows = csvData.trim().split('\n');
+        const header = rows[0];
+        
+        // Check if header matches expected format
+        if (!header.includes('Timestamp') || !header.includes('Username') || !header.includes('Bits')) {
+          return reject(new Error('Invalid bit donations CSV format. Header must include Timestamp, Username, and Bits columns.'));
+        }
+        
+        // Create a backup of the current file
+        const backupPath = `${this.bitDonationsPath}.bak`;
+        fs.copyFileSync(this.bitDonationsPath, backupPath);
+        
+        // Get existing data to avoid duplicates
+        const existingData = fs.readFileSync(this.bitDonationsPath, 'utf8').trim().split('\n');
+        const existingTimestamps = new Set();
+        
+        // Skip header and collect existing timestamps
+        for (let i = 1; i < existingData.length; i++) {
+          const row = existingData[i];
+          if (row.trim()) {
+            const timestamp = row.split(',')[0].trim();
+            existingTimestamps.add(timestamp);
+          }
+        }
+        
+        // Filter out header and rows with timestamps that already exist
+        const newRows = rows.filter((row, index) => {
+          if (index === 0) return true; // Keep header
+          
+          const timestamp = row.split(',')[0].trim();
+          return !existingTimestamps.has(timestamp);
+        });
+        
+        if (newRows.length <= 1) {
+          return resolve({
+            success: true,
+            message: 'No new donations to import. All entries already exist.',
+            count: 0
+          });
+        }
+        
+        // Append new rows to the file (skip header when appending)
+        const appendData = newRows.slice(1).join('\n') + '\n';
+        fs.appendFileSync(this.bitDonationsPath, appendData);
+        
+        console.log(`Imported ${newRows.length - 1} new bit donations`);
+        
+        resolve({
+          success: true,
+          message: `Successfully imported ${newRows.length - 1} bit donations.`,
+          count: newRows.length - 1
+        });
+      } catch (error) {
+        console.error('Error importing bit donations:', error);
+        reject(error);
+      }
+    });
+  }
+
+  // Import gift subs from CSV
+  importGiftSubs(csvData) {
+    return new Promise((resolve, reject) => {
+      try {
+        // Parse CSV data
+        const rows = csvData.trim().split('\n');
+        const header = rows[0];
+        
+        // Check if header matches expected format
+        if (!header.includes('Timestamp') || !header.includes('Username') || !header.includes('SubCount')) {
+          return reject(new Error('Invalid gift subs CSV format. Header must include Timestamp, Username, and SubCount columns.'));
+        }
+        
+        // Create a backup of the current file
+        const backupPath = `${this.giftSubsPath}.bak`;
+        fs.copyFileSync(this.giftSubsPath, backupPath);
+        
+        // Get existing data to avoid duplicates
+        const existingData = fs.readFileSync(this.giftSubsPath, 'utf8').trim().split('\n');
+        const existingTimestamps = new Set();
+        
+        // Skip header and collect existing timestamps
+        for (let i = 1; i < existingData.length; i++) {
+          const row = existingData[i];
+          if (row.trim()) {
+            const timestamp = row.split(',')[0].trim();
+            existingTimestamps.add(timestamp);
+          }
+        }
+        
+        // Filter out header and rows with timestamps that already exist
+        const newRows = rows.filter((row, index) => {
+          if (index === 0) return true; // Keep header
+          
+          const timestamp = row.split(',')[0].trim();
+          return !existingTimestamps.has(timestamp);
+        });
+        
+        if (newRows.length <= 1) {
+          return resolve({
+            success: true,
+            message: 'No new gift subs to import. All entries already exist.',
+            count: 0
+          });
+        }
+        
+        // Append new rows to the file (skip header when appending)
+        const appendData = newRows.slice(1).join('\n') + '\n';
+        fs.appendFileSync(this.giftSubsPath, appendData);
+        
+        console.log(`Imported ${newRows.length - 1} new gift subs`);
+        
+        resolve({
+          success: true,
+          message: `Successfully imported ${newRows.length - 1} gift subs.`,
+          count: newRows.length - 1
+        });
+      } catch (error) {
+        console.error('Error importing gift subs:', error);
+        reject(error);
+      }
+    });
+  }
+
+  // Import spin commands from CSV
+  importSpinCommands(csvData) {
+    return new Promise((resolve, reject) => {
+      try {
+        // Parse CSV data
+        const rows = csvData.trim().split('\n');
+        const header = rows[0];
+        
+        // Check if header matches expected format
+        if (!header.includes('Timestamp') || !header.includes('Username') || !header.includes('Command')) {
+          return reject(new Error('Invalid spin commands CSV format. Header must include Timestamp, Username, and Command columns.'));
+        }
+        
+        // Create a backup of the current file
+        const backupPath = `${this.spinCommandsPath}.bak`;
+        fs.copyFileSync(this.spinCommandsPath, backupPath);
+        
+        // Get existing data to avoid duplicates
+        const existingData = fs.readFileSync(this.spinCommandsPath, 'utf8').trim().split('\n');
+        const existingTimestamps = new Set();
+        
+        // Skip header and collect existing timestamps
+        for (let i = 1; i < existingData.length; i++) {
+          const row = existingData[i];
+          if (row.trim()) {
+            const timestamp = row.split(',')[0].trim();
+            existingTimestamps.add(timestamp);
+          }
+        }
+        
+        // Filter out header and rows with timestamps that already exist
+        const newRows = rows.filter((row, index) => {
+          if (index === 0) return true; // Keep header
+          
+          const timestamp = row.split(',')[0].trim();
+          return !existingTimestamps.has(timestamp);
+        });
+        
+        if (newRows.length <= 1) {
+          return resolve({
+            success: true,
+            message: 'No new spin commands to import. All entries already exist.',
+            count: 0
+          });
+        }
+        
+        // Append new rows to the file (skip header when appending)
+        const appendData = newRows.slice(1).join('\n') + '\n';
+        fs.appendFileSync(this.spinCommandsPath, appendData);
+        
+        console.log(`Imported ${newRows.length - 1} new spin commands`);
+        
+        resolve({
+          success: true,
+          message: `Successfully imported ${newRows.length - 1} spin commands.`,
+          count: newRows.length - 1
+        });
+      } catch (error) {
+        console.error('Error importing spin commands:', error);
+        reject(error);
+      }
+    });
+  }
+
+  // Export all data as ZIP
+  exportAllData(outputPath) {
+    return new Promise(async (resolve, reject) => {
+      let output = null;
+      
+      try {
+        // Check if archiver is installed
+        let archiver;
+        try {
+          archiver = require('archiver');
+        } catch (error) {
+          console.error('Archiver package not installed:', error);
+          return reject(new Error('The archiver package is not installed. Please run "npm install archiver --save" and restart the application.'));
+        }
+        
+        // Create output directory if it doesn't exist
+        const outputDir = path.dirname(outputPath);
+        if (!fs.existsSync(outputDir)) {
+          fs.mkdirSync(outputDir, { recursive: true });
+        }
+        
+        // Create output stream
+        output = fs.createWriteStream(outputPath);
+        
+        // Add error handling for the output stream
+        output.on('error', (err) => {
+          console.error('Output stream error:', err);
+          reject(err);
+        });
+        
+        const archive = archiver('zip', {
+          zlib: { level: 9 } // Maximum compression
+        });
+        
+        // Listen for all archive data to be written
+        output.on('close', () => {
+          console.log(`Archive created: ${archive.pointer()} total bytes`);
+          resolve({
+            success: true,
+            message: 'Data exported successfully as ZIP file.',
+            path: outputPath
+          });
+        });
+        
+        // Add progress tracking
+        archive.on('progress', (progress) => {
+          const percentage = progress.entries.processed / progress.entries.total * 100;
+          console.log(`Archive progress: ${Math.round(percentage)}%`);
+          // You could emit an event to update UI here
+        });
+        
+        // Listen for warnings during archiving
+        archive.on('warning', (err) => {
+          if (err.code === 'ENOENT') {
+            console.warn('Archive warning:', err);
+          } else {
+            console.error('Archive error:', err);
+            reject(err);
+          }
+        });
+        
+        // Listen for errors during archiving
+        archive.on('error', (err) => {
+          console.error('Archive error:', err);
+          reject(err);
+        });
+        
+        // Pipe archive data to the output file
+        archive.pipe(output);
+        
+        // Check if data files exist before adding them
+        if (fs.existsSync(this.bitDonationsPath)) {
+          archive.file(this.bitDonationsPath, { name: 'bit_donations.csv' });
+        } else {
+          console.warn(`Bit donations file not found: ${this.bitDonationsPath}`);
+          // Create empty file with header
+          const header = 'Timestamp,Username,Bits,Message,SpinTriggered,SpinCompletedCount\n';
+          archive.append(header, { name: 'bit_donations.csv' });
+        }
+        
+        if (fs.existsSync(this.giftSubsPath)) {
+          archive.file(this.giftSubsPath, { name: 'gift_subs.csv' });
+        } else {
+          console.warn(`Gift subs file not found: ${this.giftSubsPath}`);
+          // Create empty file with header
+          const header = 'Timestamp,Username,SubCount,RecipientUsernames,SpinTriggered,SpinCompletedCount\n';
+          archive.append(header, { name: 'gift_subs.csv' });
+        }
+        
+        if (fs.existsSync(this.spinCommandsPath)) {
+          archive.file(this.spinCommandsPath, { name: 'spin_commands.csv' });
+        } else {
+          console.warn(`Spin commands file not found: ${this.spinCommandsPath}`);
+          // Create empty file with header
+          const header = 'Timestamp,Username,Command\n';
+          archive.append(header, { name: 'spin_commands.csv' });
+        }
+        
+        // Include metadata JSON
+        const metadata = {
+          exportDate: new Date().toISOString(),
+          channelName: this.config.channelName,
+          bitThreshold: this.config.bitThreshold,
+          giftSubThreshold: this.config.giftSubThreshold,
+          appVersion: '1.0.0' // You could get this from package.json
+        };
+        
+        archive.append(JSON.stringify(metadata, null, 2), { name: 'metadata.json' });
+        
+        // Add a README file
+        const readme = `# Twitch Donation Tracker Export
+
+  This ZIP file contains exported data from the Twitch Donation Tracker app.
+
+  ## Files Included:
+  - bit_donations.csv: Records of bit donations
+  - gift_subs.csv: Records of gift subscriptions
+  - spin_commands.csv: Records of !spin commands
+  - metadata.json: Export information
+
+  Export Date: ${new Date().toLocaleString()}
+  Channel: ${this.config.channelName || 'Not set'}
+
+  To import this data, use the Import feature in the app's Settings page.
+  `;
+        
+        archive.append(readme, { name: 'README.txt' });
+        
+        // Finalize the archive
+        await archive.finalize();
+        
+      } catch (error) {
+        console.error('Error exporting data as ZIP:', error);
+        
+        // Cleanup in case of failure - delete incomplete zip file
+        if (output) {
+          output.end(); // Ensure the stream is closed
+        }
+        
+        if (fs.existsSync(outputPath)) {
+          try {
+            fs.unlinkSync(outputPath); // Delete incomplete zip file
+            console.log('Cleaned up incomplete ZIP file');
+          } catch (cleanupError) {
+            console.warn('Failed to clean up incomplete ZIP file:', cleanupError);
+          }
+        }
+        
+        reject(error);
+      }
+    });
+  }
   // Get spin commands
   getSpinCommands() {
     return new Promise((resolve, reject) => {
@@ -1307,13 +1650,7 @@ async updateGiftSubSpinCompletion(timestamp, incrementAmount, resetFlag = false)
     });
   }
   
-  // Export all data as ZIP
-  exportAllData(outputPath) {
-    return new Promise((resolve, reject) => {
-      // Implementation would use a ZIP library (optional for now)
-      reject(new Error('Export all data as ZIP not implemented yet'));
-    });
-  }
+
 }
 
 module.exports = DataManager;

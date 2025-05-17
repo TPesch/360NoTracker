@@ -16,6 +16,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateDonationSpin: (data) => ipcRenderer.invoke('update-donation-spin', data),
   updateGiftSubSpin: (data) => ipcRenderer.invoke('update-gift-sub-spin', data),
   processSpinCommand: (data) => ipcRenderer.invoke('process-spin-command', data),
+
+  // Import/Export functions
+  importBitDonations: (csvData) => ipcRenderer.invoke('import-bit-donations', csvData),
+  importGiftSubs: (csvData) => ipcRenderer.invoke('import-gift-subs', csvData),
+  importSpinCommands: (csvData) => ipcRenderer.invoke('import-spin-commands', csvData),
+  exportAllCSV: () => ipcRenderer.invoke('export-all-csv'),
   
   connectToTwitch: () => {
     // Set a connection status indicator first

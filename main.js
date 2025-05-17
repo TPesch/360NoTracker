@@ -426,6 +426,41 @@ function setupIPC() {
   ipcMain.handle('save-config', (event, config) => {
     return dataManager.saveConfig(config);
   });
+
+// Import bit donations
+  ipcMain.handle('import-bit-donations', (event, csvData) => {
+    return dataManager.importBitDonations(csvData);
+  });
+
+  // Import gift subs
+  ipcMain.handle('import-gift-subs', (event, csvData) => {
+    return dataManager.importGiftSubs(csvData);
+  });
+
+  // Import spin commands
+  ipcMain.handle('import-spin-commands', (event, csvData) => {
+    return dataManager.importSpinCommands(csvData);
+  });
+
+  // Export all data as ZIP
+  ipcMain.handle('export-all-csv', () => {
+    return new Promise((resolve, reject) => {
+      dialog.showSaveDialog(mainWindow, {
+        title: 'Export All Data as ZIP',
+        defaultPath: path.join(app.getPath('documents'), 'twitch-tracker-export.zip'),
+        filters: [{ name: 'ZIP Archive', extensions: ['zip'] }]
+      }).then(result => {
+        if (!result.canceled) {
+          dataManager.exportAllData(result.filePath)
+            .then(result => resolve(result))
+            .catch(error => reject(error));
+        } else {
+          resolve({ success: false, canceled: true });
+        }
+      });
+    });
+  });
+
   // Get bit donations
   ipcMain.handle('get-bit-donations', () => {
     return dataManager.getBitDonations();

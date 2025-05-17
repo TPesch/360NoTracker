@@ -188,7 +188,46 @@
                 <p class="setting-desc">This will permanently delete all donation records, gift sub records, and spin commands. This
                     action cannot be undone. Your settings will be preserved.</p>
             </div>
-        </div>
+            <div class="setting-group">
+                <h3>Import/Export Data</h3>
+                <p>Import previously exported data or export all your tracking data</p>
+            
+                <div class="setting-item">
+                    <h4>Import Data</h4>
+                    <p class="setting-desc">Upload previously exported CSV files to update your tracker data.</p>
+            
+                    <div class="import-options">
+                        <div class="import-option">
+                            <label for="import-bits">Bit Donations:</label>
+                            <input type="file" id="import-bits" accept=".csv">
+                            <button class="small-button import-button" data-import-type="bits">Import</button>
+                        </div>
+            
+                        <div class="import-option">
+                            <label for="import-subs">Gift Subs:</label>
+                            <input type="file" id="import-subs" accept=".csv">
+                            <button class="small-button import-button" data-import-type="subs">Import</button>
+                        </div>
+            
+                        <div class="import-option">
+                            <label for="import-commands">Spin Commands:</label>
+                            <input type="file" id="import-commands" accept=".csv">
+                            <button class="small-button import-button" data-import-type="commands">Import</button>
+                        </div>
+                    </div>
+                </div>
+            
+                <div class="setting-item">
+                    <h4>Export Data</h4>
+                    <p class="setting-desc">Export your tracker data as CSV files.</p>
+            
+                    <div class="export-options">
+                        <button class="button button-secondary" id="export-all-csv">Export All Data (ZIP)</button>
+                        <p class="setting-desc">Download all your tracking data (donations, gift subs, and commands) as a ZIP file.
+                        </p>
+                    </div>
+                </div>      
+            </div>
         </div>
     </div>
 

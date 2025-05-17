@@ -21,6 +21,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     const testButtons = document.querySelectorAll('.small-button[data-test]');
     const themeSelectEl = document.getElementById('theme-select');
 
+    // Import/Export handlers
+    const importButtons = document.querySelectorAll('.import-button');
+    const exportAllCSVBtn = document.getElementById('export-all-csv');
+
+
     
     // Navigation buttons
     const navDashboardBtn = document.getElementById('nav-dashboard');
@@ -60,6 +65,100 @@ document.addEventListener('DOMContentLoaded', async function() {
       window.location.href = 'settings.html';
     });
     
+    // Import button handlers
+    importButtons.forEach(button => {
+      button.addEventListener('click', async function() {
+        const importType = this.getAttribute('data-import-type');
+        let fileInput;
+        let importFunction;
+        
+        // Determine which file input and import function to use
+        switch (importType) {
+          case 'bits':
+            fileInput = document.getElementById('import-bits');
+            importFunction = window.electronAPI.importBitDonations;
+            break;
+          case 'subs':
+            fileInput = document.getElementById('import-subs');
+            importFunction = window.electronAPI.importGiftSubs;
+            break;
+          case 'commands':
+            fileInput = document.getElementById('import-commands');
+            importFunction = window.electronAPI.importSpinCommands;
+            break;
+          default:
+            showStatus('Invalid import type', 'error');
+            return;
+        }
+        
+        // Check if a file is selected
+        if (!fileInput.files || fileInput.files.length === 0) {
+          showStatus('Please select a file to import', 'error');
+          return;
+        }
+        
+        const file = fileInput.files[0];
+        
+        // Read the file
+        try {
+          const reader = new FileReader();
+          
+          reader.onload = async (e) => {
+            const csvData = e.target.result;
+            
+            try {
+              // Call the appropriate import function
+              const result = await importFunction(csvData);
+              
+              // Show result
+              if (result.success) {
+                if (result.count > 0) {
+                  showStatus(`Successfully imported ${result.count} items`, 'success');
+                } else {
+                  showStatus('No new data to import. All items already exist.', 'info');
+                }
+                
+                // Clear the file input
+                fileInput.value = '';
+              } else {
+                showStatus(result.message || 'Import failed', 'error');
+              }
+            } catch (error) {
+              console.error('Error importing data:', error);
+              showStatus(`Import failed: ${error.message}`, 'error');
+            }
+          };
+          
+          reader.onerror = () => {
+            showStatus('Error reading file', 'error');
+          };
+          
+          reader.readAsText(file);
+        } catch (error) {
+          console.error('Error reading file:', error);
+          showStatus(`Error reading file: ${error.message}`, 'error');
+        }
+      });
+    });
+
+    // Export all CSV as ZIP
+    if (exportAllCSVBtn) {
+      exportAllCSVBtn.addEventListener('click', async () => {
+        try {
+          const result = await window.electronAPI.exportAllCSV();
+          
+          if (result.success) {
+            showStatus('All data exported successfully as ZIP file', 'success');
+          } else if (!result.canceled) {
+            showStatus(result.message || 'Export failed', 'error');
+          }
+        } catch (error) {
+          console.error('Error exporting data:', error);
+          showStatus(`Export failed: ${error.message}`, 'error');
+        }
+      });
+    }
+
     // OAuth link handler
     oauthLink.addEventListener('click', (event) => {
       event.preventDefault();

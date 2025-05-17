@@ -17,6 +17,7 @@
   "author": "Tomas Pesch",
   "license": "ISC",
   "dependencies": {
+    "archiver": "^7.0.1",
     "csv-parser": "^3.0.0",
     "csv-writer": "^1.6.0",
     "electron-store": "^8.1.0",
