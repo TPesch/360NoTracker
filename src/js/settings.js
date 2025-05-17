@@ -11,6 +11,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     const saveButton = document.getElementById('save-settings');
     const statusMessage = document.getElementById('settings-status');
     const oauthLink = document.getElementById('oauth-link');
+    const enableSoundsCheckbox = document.getElementById('enable-sounds');
+    const notificationSoundSelect = document.getElementById('notification-sound');
+    const notificationVolumeInput = document.getElementById('notification-volume');
+    const volumeValueSpan = document.getElementById('volume-value');
+    const testSoundButton = document.getElementById('test-sound');
+
     
     // Navigation buttons
     const navDashboardBtn = document.getElementById('nav-dashboard');
@@ -70,6 +76,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         bitThresholdInput.value = config.bitThreshold || 1000;
         giftSubThresholdInput.value = config.giftSubThreshold || 3;
         
+        // Set default values for sound settings
+        enableSoundsCheckbox.checked = config.enableSounds !== false; 
+        notificationSoundSelect.value = config.notificationSound || 'soft';
+        notificationVolumeInput.value = config.notificationVolume || 50;
+        volumeValueSpan.textContent = `${notificationVolumeInput.value}%`;
+        
         console.log('Settings loaded successfully');
       } catch (error) {
         console.error('Error loading settings:', error);
@@ -86,6 +98,11 @@ document.addEventListener('DOMContentLoaded', async function() {
       const autoConnect = autoConnectCheckbox.checked;
       const bitThreshold = parseInt(bitThresholdInput.value);
       const giftSubThreshold = parseInt(giftSubThresholdInput.value);
+
+      // Get sound settings
+      const enableSounds = enableSoundsCheckbox.checked;
+      const notificationSound = notificationSoundSelect.value;
+      const notificationVolume = parseInt(notificationVolumeInput.value);
       
       // Basic validation
       if (!channelName) {
@@ -110,7 +127,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         twitchOAuthToken,
         autoConnect,
         bitThreshold,
-        giftSubThreshold
+        giftSubThreshold,
+        enableSounds,
+        notificationSound,
+        notificationVolume
       };
       
       try {
@@ -131,6 +151,61 @@ document.addEventListener('DOMContentLoaded', async function() {
       }
     }
     
+    // Add volume slider event listener
+    notificationVolumeInput.addEventListener('input', function() {
+      volumeValueSpan.textContent = `${this.value}%`;
+    });
+
+    // Add test sound button event listener
+    testSoundButton.addEventListener('click', function() {
+      // Play the selected sound
+      const sound = notificationSoundSelect.value;
+      const volume = parseInt(notificationVolumeInput.value) / 100;
+      
+      if (enableSoundsCheckbox.checked) {
+        playNotificationSound(sound, volume);
+      } else {
+        showStatus('Sounds are disabled. Enable sounds to test.', 'error');
+      }
+    });
+
+    // Function to play notification sound
+    function playNotificationSound(sound, volume) {
+      // Create audio element
+      const audio = new Audio();
+      
+      // Set source based on selected sound
+      switch (sound) {
+        case 'soft':
+          audio.src = '../assets/mixkit-light-button-2580.mp3';
+          break;
+        case 'cash':
+          audio.src = '../assets/mixkit-long-pop-2358.mp3';
+          break;
+        case 'bell':
+          audio.src = '../assets/mixkit-gaming-lock-2848.mp3';
+          break;
+        case 'chime':
+          audio.src = '../assets/mixkit-tile-game-reveal-960.mp3';
+          break;
+        case 'alert':
+          audio.src = '../assets/mixkit-message-pop-alert-2354.mp3';
+          break;
+        default:
+          audio.src = '../assets/mixkit-light-button-2580.mp3';
+      }
+      
+      // Set volume
+      audio.volume = volume;
+      
+      // Play sound
+      audio.play()
+        .catch(error => {
+          console.error('Error playing sound:', error);
+          showStatus('Failed to play sound', 'error');
+        });
+    }
+
     // Show status message
     function showStatus(message, type) {
       statusMessage.textContent = message;

@@ -22,7 +22,10 @@ class DataManager extends EventEmitter {
       giftSubThreshold: 3,
       twitchUsername: '',
       twitchOAuthToken: '',
-      autoConnect: false
+      autoConnect: false,
+      enableSounds: true,
+      notificationSound: 'soft',
+      notificationVolume: 50
     };
     
     // Initialize data files
