@@ -81,6 +81,20 @@ document.addEventListener('DOMContentLoaded', async function() {
       return div.innerHTML;
     }
     
+    // Initialize theme on page load
+    async function initTheme() {
+      try {
+        const config = await window.electronAPI.getConfig();
+        document.documentElement.setAttribute('data-theme', config.theme || 'dark');
+      } catch (error) {
+        console.error('Error initializing theme:', error);
+      }
+    }
+
+    // Call initTheme on page load
+    initTheme();
+
+
     // Update command stats
     function updateCommandStats(stats) {
       if (!stats) return;

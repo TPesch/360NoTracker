@@ -518,6 +518,71 @@ footer {
   cursor: not-allowed;
 }
 
+/* Theme variables */
+:root {
+  --primary-color: #9146ff;
+  --secondary-color: #772ce8;
+  --text-color: #efeff1;
+  --dark-bg: #18181b;
+  --panel-bg: #1f1f23;
+  --highlight: #bf94ff;
+  --success: #00b173;
+  --warning: #ffb347;
+  --danger: #e91916;
+}
+
+/* Light theme */
+[data-theme='light'] {
+  --primary-color: #9146ff;
+  --secondary-color: #772ce8;
+  --text-color: #222222;
+  --dark-bg: #f5f5f5;
+  --panel-bg: #ffffff;
+  --highlight: #9146ff;
+  --success: #00b173;
+  --warning: #ffb347;
+  --danger: #e91916;
+}
+
+/* Additional styles for better light theme visibility */
+[data-theme='light'] .activity-item {
+  border-left-color: var(--primary-color);
+  background-color: #f0f0f0;
+}
+
+[data-theme='light'] .activity-item.donation {
+  border-left-color: var(--primary-color);
+}
+
+[data-theme='light'] .activity-item.gift-sub {
+  border-left-color: var(--success);
+}
+
+[data-theme='light'] .activity-item.spin-command {
+  border-left-color: var(--warning);
+}
+
+[data-theme='light'] .activity-item.spin-alert {
+  border-left-color: var(--danger);
+  background-color: rgba(233, 25, 22, 0.1);
+}
+
+[data-theme='light'] th {
+  background-color: #e0e0e0;
+  color: #333;
+}
+
+[data-theme='light'] .status-item {
+  background-color: #e0e0e0;
+}
+
+/* Add style for full-width input */
+.full-width {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+
 /* Chart styles */
 .chart-container {
   margin-bottom: 30px;

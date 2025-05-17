@@ -16,6 +16,7 @@ class DataManager extends EventEmitter {
     this.spinCommandsPath = path.join(dataPath, 'spin_commands.csv');
     
     // Default configuration
+    // In the constructor, add this to the default configuration
     this.config = {
       channelName: 'girl_dm_',
       bitThreshold: 1000,
@@ -25,7 +26,8 @@ class DataManager extends EventEmitter {
       autoConnect: false,
       enableSounds: true,
       notificationSound: 'soft',
-      notificationVolume: 50
+      notificationVolume: 50,
+      theme: 'dark'
     };
     
     // Initialize data files

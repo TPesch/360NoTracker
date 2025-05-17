@@ -419,6 +419,18 @@ function updateConnectionStatus(status) {
       spinAlertEl.style.display = 'none';
     }, 10000);
   }
+      
+  // Initialize theme on page load
+  async function initTheme() {
+        try {
+          const config = await window.electronAPI.getConfig();
+          document.documentElement.setAttribute('data-theme', config.theme || 'dark');
+        } catch (error) {
+          console.error('Error initializing theme:', error);
+        }
+      }
+  // Call initTheme on page load
+  initTheme();
   
   // Update donation stats
   function updateDonationStats(stats) {

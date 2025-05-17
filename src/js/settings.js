@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const notificationVolumeInput = document.getElementById('notification-volume');
     const volumeValueSpan = document.getElementById('volume-value');
     const testSoundButton = document.getElementById('test-sound');
+    const themeSelectEl = document.getElementById('theme-select');
 
     
     // Navigation buttons
@@ -81,6 +82,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         notificationSoundSelect.value = config.notificationSound || 'soft';
         notificationVolumeInput.value = config.notificationVolume || 50;
         volumeValueSpan.textContent = `${notificationVolumeInput.value}%`;
+
+         // Update theme
+        themeSelectEl.value = config.theme || 'dark';    
         
         console.log('Settings loaded successfully');
       } catch (error) {
@@ -103,6 +107,9 @@ document.addEventListener('DOMContentLoaded', async function() {
       const enableSounds = enableSoundsCheckbox.checked;
       const notificationSound = notificationSoundSelect.value;
       const notificationVolume = parseInt(notificationVolumeInput.value);
+
+      // Get theme
+      const theme = themeSelectEl.value;
       
       // Basic validation
       if (!channelName) {
@@ -130,7 +137,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         giftSubThreshold,
         enableSounds,
         notificationSound,
-        notificationVolume
+        notificationVolume,
+        theme
       };
       
       try {
@@ -168,6 +176,27 @@ document.addEventListener('DOMContentLoaded', async function() {
         showStatus('Sounds are disabled. Enable sounds to test.', 'error');
       }
     });
+
+    // Add theme select event listener
+    themeSelectEl.addEventListener('change', function() {
+      applyTheme(this.value);
+    });
+    
+    // Function to apply theme
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+    
+    // Initialize theme on page load
+    async function initTheme() {
+      try {
+        const config = await window.electronAPI.getConfig();
+        applyTheme(config.theme || 'dark');
+      } catch (error) {
+        console.error('Error initializing theme:', error);
+      }
+    }
+    
 
     // Function to play notification sound
     function playNotificationSound(sound, volume) {
@@ -231,6 +260,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     // Initialize
     loadSettings();
+
+    // Initialize theme
+    initTheme();
+    
     // Delete all data button
     const deleteAllDataBtn = document.getElementById('delete-all-data');
     if (deleteAllDataBtn) {

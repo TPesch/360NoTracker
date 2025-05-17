@@ -330,6 +330,19 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
   }
   
+    // Initialize theme on page load
+    async function initTheme() {
+      try {
+        const config = await window.electronAPI.getConfig();
+        document.documentElement.setAttribute('data-theme', config.theme || 'dark');
+      } catch (error) {
+        console.error('Error initializing theme:', error);
+      }
+    }
+
+    // Call initTheme on page load
+    initTheme();
+
   // Escape HTML
   function escapeHtml(text) {
     if (!text) return '';
