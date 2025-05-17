@@ -12,10 +12,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     const statusMessage = document.getElementById('settings-status');
     const oauthLink = document.getElementById('oauth-link');
     const enableSoundsCheckbox = document.getElementById('enable-sounds');
-    const notificationSoundSelect = document.getElementById('notification-sound');
     const notificationVolumeInput = document.getElementById('notification-volume');
     const volumeValueSpan = document.getElementById('volume-value');
-    const testSoundButton = document.getElementById('test-sound');
+    const spinSoundSelect = document.getElementById('spin-sound');
+    const bitSoundSelect = document.getElementById('bit-sound');
+    const giftSoundSelect = document.getElementById('gift-sound');
+    const commandSoundSelect = document.getElementById('command-sound');
+    const testButtons = document.querySelectorAll('.small-button[data-test]');
     const themeSelectEl = document.getElementById('theme-select');
 
     
@@ -79,10 +82,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         // Set default values for sound settings
         enableSoundsCheckbox.checked = config.enableSounds !== false; 
-        notificationSoundSelect.value = config.notificationSound || 'soft';
         notificationVolumeInput.value = config.notificationVolume || 50;
         volumeValueSpan.textContent = `${notificationVolumeInput.value}%`;
-
+        spinSoundSelect.value = config.spinSound || 'bell';
+        bitSoundSelect.value = config.bitSound || 'cash';
+        giftSoundSelect.value = config.giftSound || 'bell';
+        commandSoundSelect.value = config.commandSound || 'soft';
+        
          // Update theme
         themeSelectEl.value = config.theme || 'dark';    
         
@@ -105,8 +111,11 @@ document.addEventListener('DOMContentLoaded', async function() {
 
       // Get sound settings
       const enableSounds = enableSoundsCheckbox.checked;
-      const notificationSound = notificationSoundSelect.value;
       const notificationVolume = parseInt(notificationVolumeInput.value);
+      const spinSound = spinSoundSelect.value;
+      const bitSound = bitSoundSelect.value;
+      const giftSound = giftSoundSelect.value;
+      const commandSound = commandSoundSelect.value;
 
       // Get theme
       const theme = themeSelectEl.value;
@@ -136,8 +145,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         bitThreshold,
         giftSubThreshold,
         enableSounds,
-        notificationSound,
         notificationVolume,
+        spinSound,
+        bitSound,
+        giftSound,
+        commandSound,
         theme
       };
       
@@ -164,19 +176,38 @@ document.addEventListener('DOMContentLoaded', async function() {
       volumeValueSpan.textContent = `${this.value}%`;
     });
 
-    // Add test sound button event listener
-    testSoundButton.addEventListener('click', function() {
-      // Play the selected sound
-      const sound = notificationSoundSelect.value;
-      const volume = parseInt(notificationVolumeInput.value) / 100;
-      
-      if (enableSoundsCheckbox.checked) {
-        playNotificationSound(sound, volume);
-      } else {
-        showStatus('Sounds are disabled. Enable sounds to test.', 'error');
-      }
+    // Add test sound button event listeners
+    testButtons.forEach(button => {
+      button.addEventListener('click', function() {
+        const soundType = this.getAttribute('data-test');
+        let soundOption;
+        
+        switch (soundType) {
+          case 'spin':
+            soundOption = spinSoundSelect.value;
+            break;
+          case 'bit':
+            soundOption = bitSoundSelect.value;
+            break;
+          case 'gift':
+            soundOption = giftSoundSelect.value;
+            break;
+          case 'command':
+            soundOption = commandSoundSelect.value;
+            break;
+          default:
+            soundOption = 'soft';
+        }
+        
+        if (enableSoundsCheckbox.checked && soundOption !== 'none') {
+          playSound(soundOption, parseInt(notificationVolumeInput.value) / 100);
+        } else if (!enableSoundsCheckbox.checked) {
+          showStatus('Sounds are disabled. Enable sounds to test.', 'error');
+        } else {
+          showStatus('No sound selected for this event.', 'info');
+        }
+      });
     });
-
     // Add theme select event listener
     themeSelectEl.addEventListener('change', function() {
       applyTheme(this.value);
@@ -198,8 +229,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
     
 
-    // Function to play notification sound
-    function playNotificationSound(sound, volume) {
+    // Function to play sound for different types of events
+    function playSound(sound, volume) {
       // Create audio element
       const audio = new Audio();
       
@@ -221,7 +252,7 @@ document.addEventListener('DOMContentLoaded', async function() {
           audio.src = '../assets/mixkit-message-pop-alert-2354.mp3';
           break;
         default:
-          audio.src = '../assets/mixkit-light-button-2580.mp3';
+          return; // No sound selected
       }
       
       // Set volume

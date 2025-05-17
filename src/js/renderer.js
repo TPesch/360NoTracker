@@ -355,34 +355,101 @@ function updateConnectionStatus(status) {
   //   }, 10000);
   // }
   
-  // Add this function near the other utility functions
-  function playNotificationSound() {
+  // // Add this function near the other utility functions
+  // function playNotificationSound() {
+  //   // Get config settings
+  //   window.electronAPI.getConfig()
+  //     .then(config => {
+  //       if (config.enableSounds) {
+  //         const sound = config.notificationSound || 'soft';
+  //         const volume = (config.notificationVolume || 50) / 100;
+          
+  //         // Create audio element
+  //         const audio = new Audio();
+          
+  //         // Set source based on selected sound
+  //         switch (sound) {
+  //           case 'soft':
+  //             audio.src = '../assets/sounds/soft-notification.mp3';
+  //             break;
+  //           case 'cash':
+  //             audio.src = '../assets/sounds/cash-register.mp3';
+  //             break;
+  //           case 'bell':
+  //             audio.src = '../assets/sounds/bell-ring.mp3';
+  //             break;
+  //           case 'chime':
+  //             audio.src = '../assets/sounds/gentle-chime.mp3';
+  //             break;
+  //           default:
+  //             audio.src = '../assets/sounds/soft-notification.mp3';
+  //         }
+          
+  //         // Set volume
+  //         audio.volume = volume;
+          
+  //         // Play sound
+  //         audio.play()
+  //           .catch(error => console.error('Error playing notification sound:', error));
+  //       }
+  //     })
+  //     .catch(error => console.error('Error getting config for sound:', error));
+  // }
+  // Function to play sound for different types of events
+  function playSound(type) {
     // Get config settings
     window.electronAPI.getConfig()
       .then(config => {
         if (config.enableSounds) {
-          const sound = config.notificationSound || 'soft';
+          let soundOption;
+          
+          // Determine which sound to play based on event type
+          switch (type) {
+            case 'spin':
+              soundOption = config.spinSound;
+              break;
+            case 'bit':
+              soundOption = config.bitSound;
+              break;
+            case 'gift':
+              soundOption = config.giftSound;
+              break;
+            case 'command':
+              soundOption = config.commandSound;
+              break;
+            default:
+              soundOption = 'soft';
+          }
+          
+          // If sound is set to 'none', don't play anything
+          if (soundOption === 'none') {
+            return;
+          }
+          
           const volume = (config.notificationVolume || 50) / 100;
           
           // Create audio element
           const audio = new Audio();
           
           // Set source based on selected sound
-          switch (sound) {
+          switch (soundOption) {
             case 'soft':
-              audio.src = '../assets/sounds/soft-notification.mp3';
+              audio.src = '../assets/mixkit-light-button-2580.mp3';
               break;
             case 'cash':
-              audio.src = '../assets/sounds/cash-register.mp3';
+              audio.src = '../assets/mixkit-long-pop-2358.mp3';
               break;
             case 'bell':
-              audio.src = '../assets/sounds/bell-ring.mp3';
+              audio.src = '../assets/mixkit-gaming-lock-2848.mp3';
               break;
             case 'chime':
-              audio.src = '../assets/sounds/gentle-chime.mp3';
+              audio.src = '../assets/mixkit-tile-game-reveal-960.mp3';
+              break;
+            case 'alert':
+              audio.src = '../assets/mixkit-message-pop-alert-2354.mp3';
               break;
             default:
-              audio.src = '../assets/sounds/soft-notification.mp3';
+              audio.src = '../assets/mixkit-light-button-2580.mp3';
           }
           
           // Set volume
@@ -390,35 +457,34 @@ function updateConnectionStatus(status) {
           
           // Play sound
           audio.play()
-            .catch(error => console.error('Error playing notification sound:', error));
+            .catch(error => console.error('Error playing sound:', error));
         }
       })
       .catch(error => console.error('Error getting config for sound:', error));
   }
-
-  // Update the showSpinAlert function to play sound
+    // Update the showSpinAlert function to use the new sound system
   function showSpinAlert(data) {
-    // Update alert message
-    if (data.isGiftSub) {
-      spinAlertMessageEl.textContent = `${data.username} gifted ${data.subCount} subs! Time to SPIN!`;
-    } else {
-      spinAlertMessageEl.textContent = `${data.username} donated ${data.bits} bits! Time to SPIN!`;
+      // Update alert message
+      if (data.isGiftSub) {
+        spinAlertMessageEl.textContent = `${data.username} gifted ${data.subCount} subs! Time to SPIN!`;
+      } else {
+        spinAlertMessageEl.textContent = `${data.username} donated ${data.bits} bits! Time to SPIN!`;
+      }
+      
+      // Show alert
+      spinAlertEl.style.display = 'block';
+      
+      // Play spin sound
+      playSound('spin');
+      
+      // Add to activity feed
+      addActivityItem('spin-alert', data);
+      
+      // Hide after 10 seconds
+      setTimeout(() => {
+        spinAlertEl.style.display = 'none';
+      }, 10000);
     }
-    
-    // Show alert
-    spinAlertEl.style.display = 'block';
-    
-    // Play notification sound
-    playNotificationSound();
-    
-    // Add to activity feed
-    addActivityItem('spin-alert', data);
-    
-    // Hide after 10 seconds
-    setTimeout(() => {
-      spinAlertEl.style.display = 'none';
-    }, 10000);
-  }
       
   // Initialize theme on page load
   async function initTheme() {
@@ -642,6 +708,8 @@ function updateConnectionStatus(status) {
       console.log('New donation:', donation);
       addActivityItem('donation', donation);
       
+      playSound('bit');
+
       // Refresh stats
       window.electronAPI.getBitDonations()
         .then(data => updateDonationStats(data.stats))
@@ -653,6 +721,8 @@ function updateConnectionStatus(status) {
       console.log('New gift sub:', giftSub);
       addActivityItem('gift-sub', giftSub);
       
+      playSound('gift');
+
       // Refresh stats
       window.electronAPI.getGiftSubs()
         .then(data => updateGiftSubStats(data.stats))
@@ -664,6 +734,8 @@ function updateConnectionStatus(status) {
       console.log('New spin command:', command);
       addActivityItem('spin-command', command);
       
+      playSound('command');
+
       // Refresh stats
       window.electronAPI.getSpinCommands()
         .then(data => updateSpinCommandStats(data.stats))
@@ -676,6 +748,8 @@ function updateConnectionStatus(status) {
       showSpinAlert(data);
     });
     
+    playSound('spin');
+
     // Twitch connection status
     window.electronAPI.onTwitchConnectionStatus((status) => {
       console.log('Twitch connection status:', status);

@@ -17,6 +17,7 @@ class DataManager extends EventEmitter {
     
     // Default configuration
     // In the constructor, add this to the default configuration
+    // In the constructor, update the default configuration
     this.config = {
       channelName: 'girl_dm_',
       bitThreshold: 1000,
@@ -25,8 +26,11 @@ class DataManager extends EventEmitter {
       twitchOAuthToken: '',
       autoConnect: false,
       enableSounds: true,
-      notificationSound: 'soft',
       notificationVolume: 50,
+      spinSound: 'bell',
+      bitSound: 'cash',
+      giftSound: 'bell',
+      commandSound: 'soft',
       theme: 'dark'
     };
     

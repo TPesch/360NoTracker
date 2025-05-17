@@ -159,6 +159,9 @@ document.addEventListener('DOMContentLoaded', async function() {
       window.electronAPI.onNewSpinCommand((command) => {
         console.log('New spin command:', command);
         
+          // Play command sound
+          playSound('command');
+
         // Refresh data
         window.electronAPI.getSpinCommands()
           .then(data => {
@@ -169,6 +172,73 @@ document.addEventListener('DOMContentLoaded', async function() {
       });
     }
     
+    function playSound(type) {
+      // Get config settings
+      window.electronAPI.getConfig()
+        .then(config => {
+          if (config.enableSounds) {
+            let soundOption;
+            
+            // Determine which sound to play based on event type
+            switch (type) {
+              case 'spin':
+                soundOption = config.spinSound;
+                break;
+              case 'bit':
+                soundOption = config.bitSound;
+                break;
+              case 'gift':
+                soundOption = config.giftSound;
+                break;
+              case 'command':
+                soundOption = config.commandSound;
+                break;
+              default:
+                soundOption = 'soft';
+            }
+            
+            // If sound is set to 'none', don't play anything
+            if (soundOption === 'none') {
+              return;
+            }
+            
+            const volume = (config.notificationVolume || 50) / 100;
+            
+            // Create audio element
+            const audio = new Audio();
+            
+            // Set source based on selected sound
+            switch (soundOption) {
+              case 'soft':
+                audio.src = '../assets/mixkit-light-button-2580.mp3';
+                break;
+              case 'cash':
+                audio.src = '../assets/mixkit-long-pop-2358.mp3';
+                break;
+              case 'bell':
+                audio.src = '../assets/mixkit-gaming-lock-2848.mp3';
+                break;
+              case 'chime':
+                audio.src = '../assets/mixkit-tile-game-reveal-960.mp3';
+                break;
+              case 'alert':
+                audio.src = '../assets/mixkit-message-pop-alert-2354.mp3';
+                break;
+              default:
+                audio.src = '../assets/mixkit-light-button-2580.mp3';
+            }
+            
+            // Set volume
+            audio.volume = volume;
+            
+            // Play sound
+            audio.play()
+              .catch(error => console.error('Error playing sound:', error));
+          }
+        })
+        .catch(error => console.error('Error getting config for sound:', error));
+    }
+
     // Clean up event listeners when navigating away
     function cleanupEventListeners() {
       window.addEventListener('beforeunload', () => {
