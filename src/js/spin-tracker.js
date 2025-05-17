@@ -25,8 +25,8 @@ document.addEventListener('DOMContentLoaded', async function() {
   const navDataBtn = document.getElementById('nav-data');
   const navSettingsBtn = document.getElementById('nav-settings');
   
-  // Export button
-  const exportSpinTrackerBtn = document.getElementById('export-spin-tracker');
+  // // Export button
+  // const exportSpinTrackerBtn = document.getElementById('export-spin-tracker');
   
   // Navigation handlers
   navDashboardBtn.addEventListener('click', () => {
@@ -65,10 +65,10 @@ document.addEventListener('DOMContentLoaded', async function() {
   // Clear completed button handler
   clearCompletedButton.addEventListener('click', clearCompletedSpins);
   
-  // Export handler
-  exportSpinTrackerBtn.addEventListener('click', () => {
-    exportCSV('spin_tracker');
-  });
+  // // Export handler
+  // exportSpinTrackerBtn.addEventListener('click', () => {
+  //   exportCSV('spin_tracker');
+  // });
   
   // Format timestamp
   function formatTimestamp(timestamp) {
@@ -351,17 +351,17 @@ document.addEventListener('DOMContentLoaded', async function() {
     return div.innerHTML;
   }
   
-  // Export CSV
-  async function exportCSV(type) {
-    try {
-      const result = await window.electronAPI.exportCSV(type);
-      if (result.success) {
-        console.log(`Exported ${type} data successfully`);
-      }
-    } catch (error) {
-      console.error(`Error exporting ${type} data:`, error);
-    }
-  }
+  // // Export CSV
+  // async function exportCSV(type) {
+  //   try {
+  //     const result = await window.electronAPI.exportCSV(type);
+  //     if (result.success) {
+  //       console.log(`Exported ${type} data successfully`);
+  //     }
+  //   } catch (error) {
+  //     console.error(`Error exporting ${type} data:`, error);
+  //   }
+  // }
   
   // Global storage for spin tracker items
   let spinItems = [];
@@ -432,6 +432,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     try {
       // Get configuration
       const config = await window.electronAPI.getConfig();
+      
       
       // Update channel name
       channelNameEl.textContent = config.channelName || 'Not set';
