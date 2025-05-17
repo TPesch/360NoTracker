@@ -7,14 +7,16 @@
     "start": "electron .",
     "dev": "electron . --dev",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "build-win": "electron-packager . TwitchDonationTracker --platform=win32 --arch=x64 --icon=src/assets/poison_skull_.ico --out=dist --asar --overwrite",
+    "build-linux": "electron-packager . TwitchDonationTracker --platform=linux --arch=x64 --icon=src/assets/poison_skull.png --out=dist --asar --overwrite"
   },
   "keywords": [
     "twitch",
     "donations",
     "tracker"
   ],
-  "author": "Tomas Pesch",
+  "author": "Fake_Boi",
   "license": "ISC",
   "dependencies": {
     "archiver": "^7.0.1",
@@ -26,7 +28,8 @@
   },
   "devDependencies": {
     "electron": "^31.1.0",
-    "electron-builder": "^24.13.1"
+    "electron-builder": "^24.13.1",
+    "electron-packager": "^17.1.2"
   },
   "build": {
     "appId": "com.tomas.twitchdonationtracker",
@@ -39,7 +42,8 @@
       "!data${/*}"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "src/assets/poison_skull_.ico"
     },
     "mac": {
       "target": "dmg"
