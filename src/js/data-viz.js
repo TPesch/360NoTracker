@@ -20,7 +20,12 @@ document.addEventListener('DOMContentLoaded', async function() {
   const navSpinTrackerBtn = document.getElementById('nav-spin-tracker');
   const navDataBtn = document.getElementById('nav-data');
   const navSettingsBtn = document.getElementById('nav-settings');
-  
+
+  const exportDonationsBtn = document.getElementById('export-donations');
+  const exportGiftSubsBtn = document.getElementById('export-gift-subs');
+  const exportSpinCommandsBtn = document.getElementById('export-spin-commands');
+  const exportAllZipBtn = document.getElementById('export-all-zip');
+
   // Channel name element
   const channelNameEl = document.getElementById('channel-name');
   
@@ -53,6 +58,58 @@ document.addEventListener('DOMContentLoaded', async function() {
     window.location.href = 'settings.html';
   });
   
+
+  // Export handlers
+if (exportDonationsBtn) {
+  exportDonationsBtn.addEventListener('click', () => {
+    exportCSV('bit_donations');
+  });
+}
+
+if (exportGiftSubsBtn) {
+  exportGiftSubsBtn.addEventListener('click', () => {
+    exportCSV('gift_subs');
+  });
+}
+
+if (exportSpinCommandsBtn) {
+  exportSpinCommandsBtn.addEventListener('click', () => {
+    exportCSV('spin_commands');
+  });
+}
+
+if (exportAllZipBtn) {
+  exportAllZipBtn.addEventListener('click', () => {
+    exportAllAsZip();
+  });
+}
+
+// Function to export CSV
+async function exportCSV(type) {
+  try {
+    const result = await window.electronAPI.exportCSV(type);
+    if (result.success) {
+      console.log(`Exported ${type} data successfully`);
+    }
+  } catch (error) {
+    console.error(`Error exporting ${type} data:`, error);
+  }
+}
+
+// Function to export all data as ZIP
+async function exportAllAsZip() {
+  try {
+    const result = await window.electronAPI.exportAllCSV();
+    
+    if (result.success) {
+      console.log('All data exported successfully as ZIP file');
+    } else if (!result.canceled) {
+      console.error('Export failed:', result.message);
+    }
+  } catch (error) {
+    console.error('Error exporting all data:', error);
+  }
+}
   // Chart instances
   let cumulativeChart, dailyChart, topDonatorsChart, distributionChart;
   

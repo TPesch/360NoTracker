@@ -333,69 +333,7 @@ function updateConnectionStatus(status) {
       activityFeedEl.removeChild(emptyState);
     }
   }
-  
-  // // Show spin alert
-  // function showSpinAlert(data) {
-  //   // Update alert message
-  //   if (data.isGiftSub) {
-  //     spinAlertMessageEl.textContent = `${data.username} gifted ${data.subCount} subs! Time to SPIN!`;
-  //   } else {
-  //     spinAlertMessageEl.textContent = `${data.username} donated ${data.bits} bits! Time to SPIN!`;
-  //   }
-    
-  //   // Show alert
-  //   spinAlertEl.style.display = 'block';
-    
-  //   // Add to activity feed
-  //   addActivityItem('spin-alert', data);
-    
-  //   // Hide after 10 seconds
-  //   setTimeout(() => {
-  //     spinAlertEl.style.display = 'none';
-  //   }, 10000);
-  // }
-  
-  // // Add this function near the other utility functions
-  // function playNotificationSound() {
-  //   // Get config settings
-  //   window.electronAPI.getConfig()
-  //     .then(config => {
-  //       if (config.enableSounds) {
-  //         const sound = config.notificationSound || 'soft';
-  //         const volume = (config.notificationVolume || 50) / 100;
-          
-  //         // Create audio element
-  //         const audio = new Audio();
-          
-  //         // Set source based on selected sound
-  //         switch (sound) {
-  //           case 'soft':
-  //             audio.src = '../assets/sounds/soft-notification.mp3';
-  //             break;
-  //           case 'cash':
-  //             audio.src = '../assets/sounds/cash-register.mp3';
-  //             break;
-  //           case 'bell':
-  //             audio.src = '../assets/sounds/bell-ring.mp3';
-  //             break;
-  //           case 'chime':
-  //             audio.src = '../assets/sounds/gentle-chime.mp3';
-  //             break;
-  //           default:
-  //             audio.src = '../assets/sounds/soft-notification.mp3';
-  //         }
-          
-  //         // Set volume
-  //         audio.volume = volume;
-          
-  //         // Play sound
-  //         audio.play()
-  //           .catch(error => console.error('Error playing notification sound:', error));
-  //       }
-  //     })
-  //     .catch(error => console.error('Error getting config for sound:', error));
-  // }
-  // Function to play sound for different types of events
+    // Function to play sound for different types of events
   function playSound(type) {
     // Get config settings
     window.electronAPI.getConfig()

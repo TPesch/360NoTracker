@@ -332,6 +332,14 @@ function createMenu() {
           label: 'Spin Commands',
           click: () => mainWindow.loadFile(path.join(__dirname, 'src', 'html', 'spin-commands.html'))
         },
+        {
+          label: 'Spin Tracker', 
+          click: () => mainWindow.loadFile(path.join(__dirname, 'src', 'html', 'spin-tracker.html'))
+        },
+        {
+          label: 'Data',
+          click: () => mainWindow.loadFile(path.join(__dirname, 'src', 'html', 'data.html'))
+        },
         { type: 'separator' },
         { role: 'reload' },
         { role: 'forceReload' },
@@ -385,7 +393,7 @@ function showAboutDialog() {
   dialog.showMessageBox(mainWindow, {
     title: 'About Twitch Donation Tracker',
     message: 'Twitch Donation Tracker',
-    detail: 'Version 1.0.0\nCreated by Tomas Pesch\n\nTrack Twitch bit donations and gift subscriptions for wheel spins.',
+    detail: 'Version 1.0.0\nCreated by Fake_Boi\n\nTrack Twitch bit donations and gift subscriptions for wheel spins.\n\nThis application is not affiliated with Twitch\nTo contact please email:\n 14TPesch@gmail.com',
     buttons: ['OK'],
     icon: path.join(__dirname, 'src', 'assets', 'icon.png')
   });
