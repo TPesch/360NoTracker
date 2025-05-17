@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Visualization - Twitch Donation Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/styles.css">
+</head>
+
+<body>
+    <header>
+        <h1><i class="fas fa-chart-bar"></i> Twitch Bit Donation Tracker</h1>
+        <p id="channel-display">Channel: <span id="channel-name">Loading...</span></p>
+    </header>
+
+    <div class="container">
+        <div class="nav-links">
+            <button class="button button-secondary" id="nav-dashboard">Dashboard</button>
+            <button class="button button-secondary" id="nav-donations">Bit Donations</button>
+            <button class="button button-secondary" id="nav-gift-subs">Gift Subs</button>
+            <button class="button button-secondary" id="nav-spin-commands">!spin Commands</button>
+            <button class="button button-secondary" id="nav-spin-tracker">Spin Tracker</button>
+            <button class="button active" id="nav-data">Data</button>
+            <button class="button button-secondary" id="nav-settings">Settings</button>
+        </div>
+
+        <div class="status-panel">
+            <h2><i class="fas fa-chart-line"></i> Data Visualization</h2>
+            <p>View donation trends and statistics over time.</p>
+
+            <div class="chart-controls">
+                <label>
+                    Time Range:
+                    <select id="time-range">
+                        <option value="all">All Time</option>
+                        <option value="30" selected>Last 30 Days</option>
+                        <option value="7">Last 7 Days</option>
+                        <option value="1">Last 24 Hours</option>
+                    </select>
+                </label>
+                <label>
+                    <input type="checkbox" id="show-bits" checked> Bits
+                </label>
+                <label>
+                    <input type="checkbox" id="show-subs" checked> Gift Subs
+                </label>
+                <label>
+                    <input type="checkbox" id="show-combined" checked> Combined
+                </label>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <div id="cumulative-chart" class="chart-panel">
+                <h3>Cumulative Donations Over Time</h3>
+                <div class="chart">
+                    <canvas id="cumulative-chart-canvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-grid">
+            <div class="chart-panel">
+                <h3>Donations by Day</h3>
+                <div class="chart">
+                    <canvas id="daily-chart-canvas"></canvas>
+                </div>
+            </div>
+            <div class="chart-panel">
+                <h3>Top Donators</h3>
+                <div class="chart">
+                    <canvas id="top-donators-chart-canvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-panel">
+            <h3>Donation Distribution</h3>
+            <div class="chart">
+                <canvas id="distribution-chart-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>Twitch Bit Donation Tracker &copy; 2025</p>
+    </footer>
+
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Chart.js for visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+
+    <!-- Main renderer script -->
+    <script src="../js/data-viz.js"></script>
+</body>
+
+</html>
