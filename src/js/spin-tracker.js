@@ -172,7 +172,32 @@ document.addEventListener('DOMContentLoaded', async function() {
     updateSpinSummary();
   }
   
-  // Update spin summary statistics
+  // // Update spin summary statistics
+  // function updateSpinSummary() {
+  //   // Calculate totals
+  //   let totalSpinsEarned = 0;
+  //   let spinsCompleted = 0;
+  //   let spinsPending = 0;
+  //   const usersPending = new Set();
+    
+  //   spinItems.forEach(item => {
+  //     totalSpinsEarned += item.spinCount;
+  //     spinsCompleted += item.completedCount;
+  //     spinsPending += (item.spinCount - item.completedCount);
+      
+  //     if (item.completedCount < item.spinCount) {
+  //       usersPending.add(item.username);
+  //     }
+  //   });
+    
+  //   // Update display
+  //   totalSpinsEarnedEl.textContent = totalSpinsEarned;
+  //   spinsCompletedEl.textContent = spinsCompleted;
+  //   spinsPendingEl.textContent = spinsPending;
+  //   usersPendingEl.textContent = usersPending.size;
+  // }
+  
+// Fixed updateSpinSummary function for spin-tracker.js
   function updateSpinSummary() {
     // Calculate totals
     let totalSpinsEarned = 0;
@@ -180,23 +205,49 @@ document.addEventListener('DOMContentLoaded', async function() {
     let spinsPending = 0;
     const usersPending = new Set();
     
-    spinItems.forEach(item => {
-      totalSpinsEarned += item.spinCount;
-      spinsCompleted += item.completedCount;
-      spinsPending += (item.spinCount - item.completedCount);
+    // Add debugging
+    console.log('Updating spin summary with', spinItems.length, 'items');
+    
+    spinItems.forEach((item, index) => {
+      // Ensure completedCount is a valid number
+      const completedCount = Math.max(0, parseInt(item.completedCount) || 0);
+      const spinCount = Math.max(0, parseInt(item.spinCount) || 0);
       
-      if (item.completedCount < item.spinCount) {
+      // Debug logging for each item
+      console.log(`Item ${index}:`, {
+        username: item.username,
+        spinCount: spinCount,
+        completedCount: completedCount,
+        pending: spinCount - completedCount
+      });
+      
+      totalSpinsEarned += spinCount;
+      spinsCompleted += completedCount;
+      
+      const pendingForUser = spinCount - completedCount;
+      spinsPending += Math.max(0, pendingForUser); // Ensure no negative pending
+      
+      // Only add to pending users if they actually have pending spins
+      if (pendingForUser > 0) {
         usersPending.add(item.username);
       }
     });
     
-    // Update display
-    totalSpinsEarnedEl.textContent = totalSpinsEarned;
-    spinsCompletedEl.textContent = spinsCompleted;
-    spinsPendingEl.textContent = spinsPending;
-    usersPendingEl.textContent = usersPending.size;
+    // Debug final calculations
+    console.log('Final summary:', {
+      totalSpinsEarned,
+      spinsCompleted,
+      spinsPending,
+      usersPendingCount: usersPending.size
+    });
+    
+    // Update display with validated values
+    totalSpinsEarnedEl.textContent = Math.max(0, totalSpinsEarned);
+    spinsCompletedEl.textContent = Math.max(0, spinsCompleted);
+    spinsPendingEl.textContent = Math.max(0, spinsPending);
+    usersPendingEl.textContent = Math.max(0, usersPending.size);
   }
-  
+
   // Mark a spin as completed - FIXED FUNCTION
   async function completeSpin(id) {
     try {

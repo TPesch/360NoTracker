@@ -824,6 +824,11 @@ app.whenReady().then(() => {
     if (mainWindow) mainWindow.webContents.send('twitch-connection-status', status);
   });
 
+  dataManager.on('spin-status-update', (data) => {
+    console.log('Main process forwarding spin-status-update:', data);
+    if (mainWindow) mainWindow.webContents.send('spin-status-update', data);
+  });
+
   app.on('activate', () => {
     // On macOS re-create a window when the dock icon is clicked and no windows are open
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
