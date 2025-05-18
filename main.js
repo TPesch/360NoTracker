@@ -279,6 +279,54 @@ function createWindow() {
   // Load the index.html file
   mainWindow.loadFile(path.join(__dirname, 'src', 'html', 'index.html'));
 
+  // Handle window close event (when user clicks X button)
+  mainWindow.on('close', (event) => {
+    // Prevent the window from closing immediately
+    event.preventDefault();
+    
+    // Show confirmation dialog
+    const choice = dialog.showMessageBoxSync(mainWindow, {
+      type: 'question',
+      title: 'Confirm Exit',
+      message: 'Are you sure you want to exit Twitch Donation Tracker?',
+      detail: 'This will disconnect from Twitch and close the application.',
+      buttons: ['Cancel', 'Exit'],
+      defaultId: 0,
+      cancelId: 0
+    });
+    
+    // If user clicked 'Exit' (index 1)
+    if (choice === 1) {
+      // Remove the close event listener to prevent recursion
+      mainWindow.removeAllListeners('close');
+      
+      // Close the window for real
+      mainWindow.close();
+    }
+    // If user clicked 'Cancel' (index 0), do nothing - window stays open
+  });
+
+  // Handle window closed event (after it's actually closed)
+  mainWindow.on('closed', () => {
+    console.log('Main window closed');
+    mainWindow = null;
+  });
+
+  // Initialize data manager
+  dataManager = new DataManager(appDataPath);
+  
+  // Create Twitch client (not connected yet)
+  twitchClient = new TwitchClient(dataManager);
+
+  // Set up application menu
+  createMenu();
+
+  // Open the DevTools in development mode
+  if (process.argv.includes('--dev')) {
+    mainWindow.webContents.openDevTools();
+  }
+
+
   // Initialize data manager
   dataManager = new DataManager(appDataPath);
   
