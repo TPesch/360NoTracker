@@ -748,6 +748,8 @@ class DataManager extends EventEmitter {
             });
           })
           .on('end', () => {
+            commands.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+          
             const stats = this.calculateSpinCommandStats(commands);
             resolve({ commands, stats });
           })

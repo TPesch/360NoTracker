@@ -44,9 +44,10 @@
                 <label>
                     Time Range:
                     <select id="time-range">
-                        <option value="all">All Time</option>
-                        <option value="30" selected>Last 30 Days</option>
+                        <option value="all" selected>All Time</option>
+                        <option value="30">Last 30 Days</option>
                         <option value="7">Last 7 Days</option>
+                        <option value="3">Last 3 Days</option>
                         <option value="1">Last 24 Hours</option>
                     </select>
                 </label>
@@ -58,8 +59,7 @@
                 </label>
                 <label>
                     <input type="checkbox" id="show-combined" checked> Combined
-                </label>
-            </div>
+                </label>      </div>
         </div>
 
         <div class="chart-container">
@@ -73,7 +73,7 @@
 
         <div class="chart-grid">
             <div class="chart-panel">
-                <h3>Donations by Day</h3>
+                <h3>Donations by Time Period</h3>
                 <div class="chart">
                     <canvas id="daily-chart-canvas"></canvas>
                 </div>

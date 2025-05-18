@@ -408,6 +408,49 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
   }
   
+  function debugSpinData() {
+    console.log('=== DEBUGGING SPIN DATA ===');
+    
+    spinItems.forEach((item, index) => {
+      const completedCount = parseInt(item.completedCount) || 0;
+      const spinCount = parseInt(item.spinCount) || 0;
+      
+      if (completedCount > spinCount) {
+        console.warn(`⚠️  Item ${index} has more completed than earned:`, {
+          username: item.username,
+          timestamp: item.timestamp,
+          type: item.type,
+          spinCount: spinCount,
+          completedCount: completedCount,
+          difference: completedCount - spinCount
+        });
+      }
+      
+      if (completedCount < 0 || spinCount < 0) {
+        console.error(`❌ Item ${index} has negative values:`, {
+          username: item.username,
+          timestamp: item.timestamp,
+          type: item.type,
+          spinCount: spinCount,
+          completedCount: completedCount
+        });
+      }
+    });
+    
+    // Check if there are any items with invalid data
+    const invalidItems = spinItems.filter(item => {
+      const completed = parseInt(item.completedCount) || 0;
+      const earned = parseInt(item.spinCount) || 0;
+      return completed > earned || completed < 0 || earned < 0;
+    });
+    
+    if (invalidItems.length > 0) {
+      console.error(`Found ${invalidItems.length} items with invalid spin data!`);
+      
+      // Show a user-friendly alert
+      alert(`Found ${invalidItems.length} entries with corrupted spin data. Check the console for details. You may need to reset the spin completion data.`);
+    }
+  }
   // Add event listeners to complete/reset buttons
   function addButtonEventListeners() {
     // Complete spin buttons
@@ -479,4 +522,5 @@ document.addEventListener('DOMContentLoaded', async function() {
   initialize();
   setupEventListeners();
   cleanupEventListeners();
+  
 });

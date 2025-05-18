@@ -1,4 +1,4 @@
-// Data visualization script
+// Data visualization script (with dynamic granularity)
 document.addEventListener('DOMContentLoaded', async function() {
   // Chart elements
   const cumulativeChartCanvas = document.getElementById('cumulative-chart-canvas');
@@ -117,6 +117,71 @@ async function exportAllAsZip() {
   let bitDonations = [];
   let giftSubs = [];
   
+  // Determine the appropriate time granularity based on range
+  function getTimeGranularity(range) {
+    if (range === 'all') {
+      return 'daily';
+    }
+    
+    const days = parseInt(range);
+    if (days > 7) {
+      return 'daily';
+    } else if (days > 1) {
+      return 'hourly';
+    } else {
+      return 'minute';
+    }
+  }
+  
+  // Format timestamp based on granularity
+  function formatTimestamp(timestamp, granularity) {
+    const date = new Date(timestamp);
+    
+    switch (granularity) {
+      case 'daily':
+        return date.toLocaleDateString();
+      case 'hourly':
+        // Format as "MM/DD/YYYY HH:00"
+        const hourFormat = new Intl.DateTimeFormat('en-US', {
+          month: '2-digit',
+          day: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          hour12: false
+        });
+        return hourFormat.format(date).replace(',', '') + ':00';
+      case 'minute':
+        // Format as "MM/DD/YYYY HH:MM"
+        const minuteFormat = new Intl.DateTimeFormat('en-US', {
+          month: '2-digit',
+          day: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        });
+        return minuteFormat.format(date).replace(',', '');
+      default:
+        return date.toLocaleDateString();
+    }
+  }
+  
+  // Round timestamp to the appropriate granularity
+  function roundTimestamp(timestamp, granularity) {
+    const date = new Date(timestamp);
+    
+    switch (granularity) {
+      case 'daily':
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      case 'hourly':
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours());
+      case 'minute':
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours(), date.getMinutes());
+      default:
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+  }
+  
   // Filter by time range
   function filterByTimeRange(data, days) {
     if (days === 'all') return data;
@@ -127,86 +192,128 @@ async function exportAllAsZip() {
     return data.filter(item => new Date(item.timestamp) >= cutoffDate);
   }
   
-  // Prepare cumulative chart data
+  // Prepare cumulative chart data with dynamic granularity
   function prepareCumulativeData(bits, subs, range) {
     // Filter data by time range
     const filteredBits = filterByTimeRange(bits, range);
     const filteredSubs = filterByTimeRange(subs, range);
     
-    // Sort by timestamp
+    // Determine granularity
+    const granularity = getTimeGranularity(range);
+    console.log(`Using ${granularity} granularity for range: ${range}`);
+    
+    // Sort by timestamp (OLDEST TO NEWEST for cumulative display)
     filteredBits.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     filteredSubs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     
-    // Generate date labels (using all unique dates from both datasets)
-    const allDates = new Set();
-    filteredBits.forEach(donation => allDates.add(new Date(donation.timestamp).toLocaleDateString()));
-    filteredSubs.forEach(sub => allDates.add(new Date(sub.timestamp).toLocaleDateString()));
+    // Generate time labels with appropriate granularity
+    const allTimes = new Set();
+    filteredBits.forEach(donation => {
+      allTimes.add(formatTimestamp(donation.timestamp, granularity));
+    });
+    filteredSubs.forEach(sub => {
+      allTimes.add(formatTimestamp(sub.timestamp, granularity));
+    });
     
-    const dateLabels = Array.from(allDates).sort((a, b) => new Date(a) - new Date(b));
+    // Sort times from oldest to newest
+    const timeLabels = Array.from(allTimes).sort((a, b) => {
+      const dateA = granularity === 'daily' ? new Date(a) : 
+                   granularity === 'hourly' ? new Date(a.replace(':00', '')) :
+                   new Date(a);
+      const dateB = granularity === 'daily' ? new Date(b) : 
+                   granularity === 'hourly' ? new Date(b.replace(':00', '')) :
+                   new Date(b);
+      return dateA - dateB;
+    });
     
     // Prepare datasets
-    const bitsData = { dates: [], values: [] };
-    const subsData = { dates: [], values: [] };
-    const combinedData = { dates: [], values: [] };
+    const bitsData = { times: [], values: [] };
+    const subsData = { times: [], values: [] };
+    const combinedData = { times: [], values: [] };
     
     let cumulativeBits = 0;
     let cumulativeSubs = 0;
     
-    dateLabels.forEach(date => {
-      // Add bits for this date
-      const bitsForDate = filteredBits.filter(d => new Date(d.timestamp).toLocaleDateString() === date);
-      const bitsSum = bitsForDate.reduce((sum, d) => sum + d.bits, 0);
+    timeLabels.forEach(timeLabel => {
+      // Add bits for this time period
+      const bitsForTime = filteredBits.filter(d => 
+        formatTimestamp(d.timestamp, granularity) === timeLabel
+      );
+      const bitsSum = bitsForTime.reduce((sum, d) => sum + d.bits, 0);
       cumulativeBits += bitsSum;
       
-      // Add subs for this date (convert to bits equivalent: 1 sub = 500 bits)
-      const subsForDate = filteredSubs.filter(s => new Date(s.timestamp).toLocaleDateString() === date);
-      const subsSum = subsForDate.reduce((sum, s) => sum + s.subCount, 0) * 500; // Convert to bits equivalent
+      // Add subs for this time period (convert to bits equivalent: 1 sub = 500 bits)
+      const subsForTime = filteredSubs.filter(s => 
+        formatTimestamp(s.timestamp, granularity) === timeLabel
+      );
+      const subsSum = subsForTime.reduce((sum, s) => sum + s.subCount, 0) * 500;
       cumulativeSubs += subsSum;
       
       // Add to datasets
-      bitsData.dates.push(date);
+      bitsData.times.push(timeLabel);
       bitsData.values.push(cumulativeBits);
       
-      subsData.dates.push(date);
+      subsData.times.push(timeLabel);
       subsData.values.push(cumulativeSubs);
       
-      combinedData.dates.push(date);
+      combinedData.times.push(timeLabel);
       combinedData.values.push(cumulativeBits + cumulativeSubs);
     });
     
     return {
-      labels: dateLabels,
+      labels: timeLabels,
       bitsData,
       subsData,
-      combinedData
+      combinedData,
+      granularity
     };
   }
   
-  // Prepare daily chart data
+  // Prepare daily chart data with dynamic granularity
   function prepareDailyData(bits, subs, range) {
     // Filter data by time range
     const filteredBits = filterByTimeRange(bits, range);
     const filteredSubs = filterByTimeRange(subs, range);
     
-    // Generate date labels (using all unique dates from both datasets)
-    const allDates = new Set();
-    filteredBits.forEach(donation => allDates.add(new Date(donation.timestamp).toLocaleDateString()));
-    filteredSubs.forEach(sub => allDates.add(new Date(sub.timestamp).toLocaleDateString()));
+    // Determine granularity
+    const granularity = getTimeGranularity(range);
     
-    const dateLabels = Array.from(allDates).sort((a, b) => new Date(a) - new Date(b));
+    // Generate time labels with appropriate granularity
+    const allTimes = new Set();
+    filteredBits.forEach(donation => {
+      allTimes.add(formatTimestamp(donation.timestamp, granularity));
+    });
+    filteredSubs.forEach(sub => {
+      allTimes.add(formatTimestamp(sub.timestamp, granularity));
+    });
+    
+    // Sort times from oldest to newest
+    const timeLabels = Array.from(allTimes).sort((a, b) => {
+      const dateA = granularity === 'daily' ? new Date(a) : 
+                   granularity === 'hourly' ? new Date(a.replace(':00', '')) :
+                   new Date(a);
+      const dateB = granularity === 'daily' ? new Date(b) : 
+                   granularity === 'hourly' ? new Date(b.replace(':00', '')) :
+                   new Date(b);
+      return dateA - dateB;
+    });
     
     // Prepare datasets
     const bitsData = [];
     const subsData = [];
     
-    dateLabels.forEach(date => {
-      // Sum bits for this date
-      const bitsForDate = filteredBits.filter(d => new Date(d.timestamp).toLocaleDateString() === date);
-      const bitsSum = bitsForDate.reduce((sum, d) => sum + d.bits, 0);
+    timeLabels.forEach(timeLabel => {
+      // Sum bits for this time period
+      const bitsForTime = filteredBits.filter(d => 
+        formatTimestamp(d.timestamp, granularity) === timeLabel
+      );
+      const bitsSum = bitsForTime.reduce((sum, d) => sum + d.bits, 0);
       
-      // Sum subs for this date (convert to bits equivalent: 1 sub = 500 bits)
-      const subsForDate = filteredSubs.filter(s => new Date(s.timestamp).toLocaleDateString() === date);
-      const subsSum = subsForDate.reduce((sum, s) => sum + s.subCount, 0) * 500; // Convert to bits equivalent
+      // Sum subs for this time period (convert to bits equivalent: 1 sub = 500 bits)
+      const subsForTime = filteredSubs.filter(s => 
+        formatTimestamp(s.timestamp, granularity) === timeLabel
+      );
+      const subsSum = subsForTime.reduce((sum, s) => sum + s.subCount, 0) * 500;
       
       // Add to datasets
       bitsData.push(bitsSum);
@@ -214,9 +321,10 @@ async function exportAllAsZip() {
     });
     
     return {
-      labels: dateLabels,
+      labels: timeLabels,
       bitsData,
-      subsData
+      subsData,
+      granularity
     };
   }
   
@@ -313,6 +421,20 @@ async function exportAllAsZip() {
     };
   }
   
+  // Get chart title based on granularity
+  function getChartTitle(baseTitle, granularity) {
+    switch (granularity) {
+      case 'daily':
+        return `${baseTitle} (Daily)`;
+      case 'hourly':
+        return `${baseTitle} (Hourly)`;
+      case 'minute':
+        return `${baseTitle} (Per Minute)`;
+      default:
+        return baseTitle;
+    }
+  }
+  
   // Create cumulative chart
   function createCumulativeChart(data) {
     if (cumulativeChart) {
@@ -354,6 +476,12 @@ async function exportAllAsZip() {
       });
     }
     
+    // Update chart title
+    const titleElement = document.querySelector('#cumulative-chart h3');
+    if (titleElement) {
+      titleElement.textContent = getChartTitle('Cumulative Donations Over Time', data.granularity);
+    }
+    
     cumulativeChart = new Chart(cumulativeChartCanvas, {
       type: 'line',
       data: {
@@ -378,7 +506,9 @@ async function exportAllAsZip() {
               color: 'rgba(255, 255, 255, 0.1)'
             },
             ticks: {
-              color: 'rgba(255, 255, 255, 0.7)'
+              color: 'rgba(255, 255, 255, 0.7)',
+              maxTicksLimit: data.granularity === 'minute' ? 20 : 15,
+              maxRotation: 45
             }
           }
         },
@@ -401,6 +531,12 @@ async function exportAllAsZip() {
   function createDailyChart(data) {
     if (dailyChart) {
       dailyChart.destroy();
+    }
+    
+    // Update chart title
+    const titleElement = document.querySelector('.chart-panel h3');
+    if (titleElement && titleElement.textContent.includes('Donations by Day')) {
+      titleElement.textContent = getChartTitle('Donations by Time Period', data.granularity);
     }
     
     dailyChart = new Chart(dailyChartCanvas, {
@@ -440,7 +576,9 @@ async function exportAllAsZip() {
               color: 'rgba(255, 255, 255, 0.1)'
             },
             ticks: {
-              color: 'rgba(255, 255, 255, 0.7)'
+              color: 'rgba(255, 255, 255, 0.7)',
+              maxTicksLimit: data.granularity === 'minute' ? 20 : 15,
+              maxRotation: 45
             }
           }
         },
