@@ -1,3 +1,4 @@
+// Fixed Twitch client with enhanced !spin command handling
 const tmi = require('tmi.js');
 
 class TwitchClient {
@@ -113,40 +114,41 @@ class TwitchClient {
         throw error;
       });
   }
-// Disconnect from Twitch chat with better cleanup
-disconnect() {
-  if (!this.connected || !this.client) {
-    return Promise.resolve({ success: true, message: 'Not connected to Twitch' });
+
+  // Disconnect from Twitch chat with better cleanup
+  disconnect() {
+    if (!this.connected || !this.client) {
+      return Promise.resolve({ success: true, message: 'Not connected to Twitch' });
+    }
+    
+    // Create a copy of the client to avoid race conditions
+    const clientToDisconnect = this.client;
+    
+    // Clear our references immediately
+    this.client = null;
+    this.connected = false;
+    
+    // Emit status update before actual disconnect to provide immediate UI feedback
+    this.dataManager.emit('twitch-connection-status', { connected: false });
+    
+    return clientToDisconnect.disconnect()
+      .then(() => {
+        console.log('Disconnected from Twitch');
+        return { success: true, message: 'Disconnected from Twitch' };
+      })
+      .catch(error => {
+        console.error('Error disconnecting from Twitch:', error);
+        throw error;
+      })
+      .finally(() => {
+        // Clean up listeners to prevent memory leaks
+        try {
+          clientToDisconnect.removeAllListeners();
+        } catch (err) {
+          console.error('Error removing listeners during disconnect:', err);
+        }
+      });
   }
-  
-  // Create a copy of the client to avoid race conditions
-  const clientToDisconnect = this.client;
-  
-  // Clear our references immediately
-  this.client = null;
-  this.connected = false;
-  
-  // Emit status update before actual disconnect to provide immediate UI feedback
-  this.dataManager.emit('twitch-connection-status', { connected: false });
-  
-  return clientToDisconnect.disconnect()
-    .then(() => {
-      console.log('Disconnected from Twitch');
-      return { success: true, message: 'Disconnected from Twitch' };
-    })
-    .catch(error => {
-      console.error('Error disconnecting from Twitch:', error);
-      throw error;
-    })
-    .finally(() => {
-      // Clean up listeners to prevent memory leaks
-      try {
-        clientToDisconnect.removeAllListeners();
-      } catch (err) {
-        console.error('Error removing listeners during disconnect:', err);
-      }
-    });
-}
   
   // Set up event handlers for Twitch events
   setupEventHandlers() {
@@ -176,51 +178,81 @@ disconnect() {
       // But we could enhance the tracker to add recipient names
     });
     
-    // Message events (to track !spin commands)
+    // Message events (to track !spin commands) - ENHANCED VERSION
     this.client.on('message', (channel, userstate, message, self) => {
       // Ignore messages from the bot itself
       if (self) return;
       
       const username = userstate.username || 'anonymous';
+      const messageText = message.trim();
+      
+      console.log(`[CHAT] ${username}: ${messageText}`);
       
       // Check if message starts with !spin
-      if (message.trim().toLowerCase().startsWith('!spin')) {
+      if (messageText.toLowerCase().startsWith('!spin')) {
         // Record the command usage
-        this.dataManager.recordSpinCommand(username, message.trim());
+        this.dataManager.recordSpinCommand(username, messageText);
         
         // Check if this is a mod or broadcaster
-        const isMod = userstate.mod || userstate.badges?.broadcaster === '1';
+        const isMod = userstate.mod || userstate.badges?.broadcaster === '1' || userstate.badges?.moderator === '1';
+        const isBroadcaster = userstate.badges?.broadcaster === '1';
         
-        // If user is a mod, try to process the spin command
-        if (isMod) {
+        console.log(`!spin command from ${username}, isMod: ${isMod}, isBroadcaster: ${isBroadcaster}`);
+        console.log('User badges:', JSON.stringify(userstate.badges));
+        console.log('User state:', JSON.stringify({
+          mod: userstate.mod,
+          'user-type': userstate['user-type'],
+          subscriber: userstate.subscriber
+        }));
+        
+        // If user is a mod or broadcaster, try to process the spin command
+        if (isMod || isBroadcaster) {
           // Extract the target username from the message
-          const match = message.match(/!spin\s+@?(\w+)/i);
+          // Support formats: !spin @username, !spin username, !spin @Username
+          const spinCommandMatch = messageText.match(/!spin\s+@?(\w+)/i);
           
-          if (match && match[1]) {
-            const targetUsername = match[1];
-            console.log(`${username} used !spin command for ${targetUsername}`);
+          if (spinCommandMatch && spinCommandMatch[1]) {
+            const targetUsername = spinCommandMatch[1].toLowerCase(); // Make case-insensitive
+            console.log(`${username} (mod/broadcaster) used !spin command for target: ${targetUsername}`);
             
             // Process the command
             this.dataManager.processSpinCommand(username, targetUsername)
               .then(result => {
                 console.log(`Spin command result:`, result);
+                
+                // Send feedback to chat (optional)
+                if (result.success) {
+                  // You could uncomment this to send chat feedback
+                  // this.client.say(channel, `@${username} Marked spin for ${targetUsername}!`);
+                } else {
+                  console.log(`Failed to mark spin for ${targetUsername}: ${result.message}`);
+                  // You could uncomment this to send error feedback
+                  // this.client.say(channel, `@${username} Could not find recent donation from ${targetUsername}`);
+                }
               })
               .catch(error => {
                 console.error('Error processing spin command:', error);
               });
+          } else {
+            console.log(`Invalid !spin command format from ${username}: ${messageText}`);
+            // You could uncomment this to send usage help
+            // this.client.say(channel, `@${username} Usage: !spin @username`);
           }
+        } else {
+          console.log(`Non-mod ${username} used !spin command - ignoring processing`);
         }
-      } else if (message.trim().toLowerCase().startsWith('!setthreshold')) {
+      } else if (messageText.toLowerCase().startsWith('!setthreshold')) {
         // Additional command for mods to set thresholds
-        const isMod = userstate.mod || userstate.badges?.broadcaster === '1';
+        const isMod = userstate.mod || userstate.badges?.broadcaster === '1' || userstate.badges?.moderator === '1';
+        const isBroadcaster = userstate.badges?.broadcaster === '1';
         
-        if (isMod) {
+        if (isMod || isBroadcaster) {
           // Try to parse threshold values
-          const match = message.match(/!setthreshold\s+bits=(\d+)\s+subs=(\d+)/i);
+          const thresholdMatch = messageText.match(/!setthreshold\s+bits=(\d+)\s+subs=(\d+)/i);
           
-          if (match && match[1] && match[2]) {
-            const bitThreshold = parseInt(match[1]);
-            const giftSubThreshold = parseInt(match[2]);
+          if (thresholdMatch && thresholdMatch[1] && thresholdMatch[2]) {
+            const bitThreshold = parseInt(thresholdMatch[1]);
+            const giftSubThreshold = parseInt(thresholdMatch[2]);
             
             // Update configuration
             this.dataManager.saveConfig({
@@ -230,13 +262,17 @@ disconnect() {
               .then(result => {
                 if (result.success) {
                   console.log(`Mod ${username} updated thresholds: bits=${bitThreshold}, subs=${giftSubThreshold}`);
+                  // You could uncomment this to send confirmation
+                  // this.client.say(channel, `@${username} Thresholds updated: ${bitThreshold} bits, ${giftSubThreshold} subs`);
                 }
               })
               .catch(error => {
                 console.error('Error updating thresholds via chat command:', error);
               });
           } else {
-            console.log(`Invalid threshold format from ${username}: ${message}`);
+            console.log(`Invalid threshold format from ${username}: ${messageText}`);
+            // You could uncomment this to send usage help
+            // this.client.say(channel, `@${username} Usage: !setthreshold bits=1000 subs=3`);
           }
         }
       }

@@ -37,10 +37,10 @@ document.addEventListener('DOMContentLoaded', async function() {
   const exportGiftSubsBtn = document.getElementById('export-gift-subs');
   const exportSpinCommandsBtn = document.getElementById('export-spin-commands');
   
-  // Test buttons
-  const testDonationBtn = document.getElementById('test-donation');
-  const testGiftSubBtn = document.getElementById('test-gift-sub');
-  const testSpinCommandBtn = document.getElementById('test-spin-command');
+  // // Test buttons
+  // const testDonationBtn = document.getElementById('test-donation');
+  // const testGiftSubBtn = document.getElementById('test-gift-sub');
+  // const testSpinCommandBtn = document.getElementById('test-spin-command');
   
   // Navigation handlers
   navDashboardBtn.addEventListener('click', () => {
@@ -84,18 +84,18 @@ document.addEventListener('DOMContentLoaded', async function() {
     exportCSV('spin_commands');
   });
   
-  // Test handlers
-  testDonationBtn.addEventListener('click', () => {
-    createTestDonation();
-  });
+  // // Test handlers
+  // testDonationBtn.addEventListener('click', () => {
+  //   createTestDonation();
+  // });
   
-  testGiftSubBtn.addEventListener('click', () => {
-    createTestGiftSub();
-  });
+  // testGiftSubBtn.addEventListener('click', () => {
+  //   createTestGiftSub();
+  // });
   
-  testSpinCommandBtn.addEventListener('click', () => {
-    createTestSpinCommand();
-  });
+  // testSpinCommandBtn.addEventListener('click', () => {
+  //   createTestSpinCommand();
+  // });
 
  // Connect/disconnect handlers
   connectButton.addEventListener('click', () => {

@@ -294,7 +294,101 @@ function createWindow() {
   }
 }
 
-// Create application menu
+// // Create application menu
+// function createMenu() {
+//   const template = [
+//     {
+//       label: 'File',
+//       submenu: [
+//         {
+//           label: 'Settings',
+//           click: () => mainWindow.loadFile(path.join(__dirname, 'src', 'html', 'settings.html'))
+//         },
+//         { type: 'separator' },
+//         {
+//           label: 'Export All Data',
+//           click: exportAllData
+//         },
+//         { type: 'separator' },
+//         { role: 'quit' }
+//       ]
+//     },
+//     {
+//       label: 'View',
+//       submenu: [
+//         {
+//           label: 'Dashboard',
+//           click: () => mainWindow.loadFile(path.join(__dirname, 'src', 'html', 'index.html'))
+//         },
+//         {
+//           label: 'Bits Donations',
+//           click: () => mainWindow.loadFile(path.join(__dirname, 'src', 'html', 'donations.html'))
+//         },
+//         {
+//           label: 'Gift Subs',
+//           click: () => mainWindow.loadFile(path.join(__dirname, 'src', 'html', 'gift-subs.html'))
+//         },
+//         {
+//           label: 'Spin Commands',
+//           click: () => mainWindow.loadFile(path.join(__dirname, 'src', 'html', 'spin-commands.html'))
+//         },
+//         {
+//           label: 'Spin Tracker', 
+//           click: () => mainWindow.loadFile(path.join(__dirname, 'src', 'html', 'spin-tracker.html'))
+//         },
+//         {
+//           label: 'Data',
+//           click: () => mainWindow.loadFile(path.join(__dirname, 'src', 'html', 'data.html'))
+//         },
+//         { type: 'separator' },
+//         { role: 'reload' },
+//         { role: 'forceReload' },
+//         { role: 'toggleDevTools' },
+//         { type: 'separator' },
+//         { role: 'resetZoom' },
+//         { role: 'zoomIn' },
+//         { role: 'zoomOut' },
+//         { type: 'separator' },
+//         { role: 'togglefullscreen' }
+//       ]
+//     },
+//     {
+//       label: 'Twitch',
+//       submenu: [
+//         {
+//           label: 'Connect to Twitch',
+//           click: () => twitchClient.connect()
+//         },
+//         {
+//           label: 'Disconnect from Twitch',
+//           click: () => twitchClient.disconnect()
+//         },
+//         { type: 'separator' },
+//         {
+//           label: 'Open Twitch Channel',
+//           click: () => {
+//             const channel = dataManager.getConfig().channelName || 'twitch';
+//             shell.openExternal(`https://twitch.tv/${channel}`);
+//           }
+//         }
+//       ]
+//     },
+//     {
+//       label: 'Help',
+//       submenu: [
+//         {
+//           label: 'About',
+//           click: () => showAboutDialog()
+//         }
+//       ]
+//     }
+//   ];
+
+//   const menu = Menu.buildFromTemplate(template);
+//   Menu.setApplicationMenu(menu);
+// }
+
+// Fixed main.js menu with correct IPC calls for test functions
 function createMenu() {
   const template = [
     {
@@ -369,6 +463,110 @@ function createMenu() {
           click: () => {
             const channel = dataManager.getConfig().channelName || 'twitch';
             shell.openExternal(`https://twitch.tv/${channel}`);
+          }
+        }
+      ]
+    },
+    {
+      label: 'Test',
+      submenu: [
+        {
+          label: 'Test Bit Donation',
+          click: async () => {
+            try {
+              const donation = await dataManager.createTestDonation({
+                username: 'TestUser',
+                bits: 1000,
+                message: 'This is a test donation',
+              });
+              console.log('Test donation created:', donation);
+              dialog.showMessageBox(mainWindow, {
+                type: 'info',
+                title: 'Test Donation Created',
+                message: `Created test donation: ${donation.username} donated ${donation.bits} bits`,
+                buttons: ['OK']
+              });
+            } catch (error) {
+              console.error('Error creating test donation:', error);
+              dialog.showErrorBox('Test Failed', `Error creating test donation: ${error.message}`);
+            }
+          }
+        },
+        {
+          label: 'Test Gift Sub',
+          click: async () => {
+            try {
+              const giftSub = await dataManager.createTestGiftSub({
+                username: 'TestUser',
+                subCount: 3,
+                recipients: ['Recipient1', 'Recipient2', 'Recipient3'],
+              });
+              console.log('Test gift sub created:', giftSub);
+              dialog.showMessageBox(mainWindow, {
+                type: 'info',
+                title: 'Test Gift Sub Created',
+                message: `Created test gift sub: ${giftSub.username} gifted ${giftSub.subCount} subs`,
+                buttons: ['OK']
+              });
+            } catch (error) {
+              console.error('Error creating test gift sub:', error);
+              dialog.showErrorBox('Test Failed', `Error creating test gift sub: ${error.message}`);
+            }
+          }
+        },
+        {
+          label: 'Test !spin Command',
+          click: async () => {
+            try {
+              const command = await dataManager.createTestSpinCommand({
+                username: 'TestMod',
+                targetUsername: 'TestUser',
+              });
+              console.log('Test spin command created:', command);
+              dialog.showMessageBox(mainWindow, {
+                type: 'info',
+                title: 'Test !spin Command Created',
+                message: `Created test !spin command: ${command.username} used ${command.command}`,
+                buttons: ['OK']
+              });
+            } catch (error) {
+              console.error('Error creating test spin command:', error);
+              dialog.showErrorBox('Test Failed', `Error creating test spin command: ${error.message}`);
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Test Spin Processing',
+          click: async () => {
+            try {
+              // First create a test donation
+              const donation = await dataManager.createTestDonation({
+                username: 'SpinTestUser',
+                bits: 2000,
+                message: 'This donation should allow spin completion',
+              });
+              console.log('Test donation created for spin test:', donation);
+              
+              // Wait a moment for the donation to be processed
+              await new Promise(resolve => setTimeout(resolve, 500));
+              
+              // Then test the spin command processing
+              const result = await dataManager.processSpinCommand('TestMod', 'SpinTestUser');
+              console.log('Spin command processing result:', result);
+              
+              dialog.showMessageBox(mainWindow, {
+                type: result.success ? 'info' : 'warning',
+                title: 'Test Spin Processing',
+                message: result.success ? 
+                  `Success: ${result.message}` : 
+                  `Failed: ${result.message}`,
+                buttons: ['OK']
+              });
+            } catch (error) {
+              console.error('Error testing spin processing:', error);
+              dialog.showErrorBox('Test Failed', `Error testing spin processing: ${error.message}`);
+            }
           }
         }
       ]

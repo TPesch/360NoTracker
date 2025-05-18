@@ -1172,25 +1172,107 @@ class DataManager extends EventEmitter {
     });
   }
   
-  // Process !spin command from a moderator
+  // // Process !spin command from a moderator
+  // async processSpinCommand(modUsername, targetUsername) {
+  //   try {
+  //     // First try to find a bit donation for this user
+  //     const donation = await this.findRecentDonationByUsername(targetUsername);
+      
+  //     if (donation) {
+  //       // Only update if it's not already marked as triggered
+  //       if (!donation.spinTriggered) {
+  //         await this.updateDonationSpinStatus(donation.timestamp, true);
+          
+  //         console.log(`Marked bit donation from ${targetUsername} for spin`);
+  //         return {
+  //           success: true,
+  //           type: 'bit_donation',
+  //           donation
+  //         };
+  //       } else {
+  //         console.log(`Donation from ${targetUsername} was already marked for spin`);
+  //       }
+  //     }
+      
+  //     // If no bit donation, try to find a gift sub for this user
+  //     const giftSub = await this.findRecentGiftSubByUsername(targetUsername);
+      
+  //     if (giftSub) {
+  //       // Only update if it's not already marked as triggered
+  //       if (!giftSub.spinTriggered) {
+  //         await this.updateGiftSubSpinStatus(giftSub.timestamp, true);
+          
+  //         console.log(`Marked gift sub from ${targetUsername} for spin`);
+  //         return {
+  //           success: true,
+  //           type: 'gift_sub',
+  //           giftSub
+  //         };
+  //       } else {
+  //         console.log(`Gift sub from ${targetUsername} was already marked for spin`);
+  //       }
+  //     }
+      
+  //     // No valid donation or gift sub found for the user
+  //     console.log(`No recent donations or gift subs found for ${targetUsername}`);
+  //     return {
+  //       success: false,
+  //       message: `No recent donations or gift subs found for ${targetUsername}`
+  //     };
+  //   } catch (error) {
+  //     console.error('Error processing spin command:', error);
+  //     return {
+  //       success: false,
+  //       message: `Error processing command: ${error.message}`
+  //     };
+  //   }
+  // }
+
+  // Enhanced processSpinCommand with better spin completion tracking
   async processSpinCommand(modUsername, targetUsername) {
     try {
+      console.log(`Processing !spin command from ${modUsername} for ${targetUsername}`);
+      
       // First try to find a bit donation for this user
       const donation = await this.findRecentDonationByUsername(targetUsername);
       
       if (donation) {
-        // Only update if it's not already marked as triggered
-        if (!donation.spinTriggered) {
-          await this.updateDonationSpinStatus(donation.timestamp, true);
+        console.log(`Found donation for ${targetUsername}:`, JSON.stringify(donation));
+        
+        // Check if this donation qualifies for spins
+        const bitThreshold = this.config.bitThreshold || 1000;
+        const maxSpins = Math.floor(donation.bits / bitThreshold);
+        
+        if (maxSpins > 0) {
+          // Get current completion status
+          const currentCompleted = donation.spinCompletedCount || 0;
           
-          console.log(`Marked bit donation from ${targetUsername} for spin`);
-          return {
-            success: true,
-            type: 'bit_donation',
-            donation
-          };
+          console.log(`Donation spins: max=${maxSpins}, completed=${currentCompleted}`);
+          
+          if (currentCompleted < maxSpins) {
+            // Mark one spin as completed
+            await this.updateDonationSpinCompletion(donation.timestamp, 1);
+            
+            console.log(`✅ Marked 1 spin as completed for ${targetUsername}'s bit donation`);
+            return {
+              success: true,
+              type: 'bit_donation',
+              donation,
+              message: `Marked 1 spin as completed for ${targetUsername} (${currentCompleted + 1}/${maxSpins})`
+            };
+          } else {
+            console.log(`❌ All spins already completed for ${targetUsername}'s bit donation`);
+            return {
+              success: false,
+              message: `All spins already completed for ${targetUsername}'s donation (${currentCompleted}/${maxSpins})`
+            };
+          }
         } else {
-          console.log(`Donation from ${targetUsername} was already marked for spin`);
+          console.log(`❌ Donation from ${targetUsername} (${donation.bits} bits) doesn't qualify for spins (threshold: ${bitThreshold})`);
+          return {
+            success: false,
+            message: `Donation from ${targetUsername} doesn't meet the threshold for spins`
+          };
         }
       }
       
@@ -1198,23 +1280,47 @@ class DataManager extends EventEmitter {
       const giftSub = await this.findRecentGiftSubByUsername(targetUsername);
       
       if (giftSub) {
-        // Only update if it's not already marked as triggered
-        if (!giftSub.spinTriggered) {
-          await this.updateGiftSubSpinStatus(giftSub.timestamp, true);
+        console.log(`Found gift sub for ${targetUsername}:`, JSON.stringify(giftSub));
+        
+        // Check if this gift sub qualifies for spins
+        const giftSubThreshold = this.config.giftSubThreshold || 3;
+        const maxSpins = Math.floor(giftSub.subCount / giftSubThreshold);
+        
+        if (maxSpins > 0) {
+          // Get current completion status
+          const currentCompleted = giftSub.spinCompletedCount || 0;
           
-          console.log(`Marked gift sub from ${targetUsername} for spin`);
-          return {
-            success: true,
-            type: 'gift_sub',
-            giftSub
-          };
+          console.log(`Gift sub spins: max=${maxSpins}, completed=${currentCompleted}`);
+          
+          if (currentCompleted < maxSpins) {
+            // Mark one spin as completed
+            await this.updateGiftSubSpinCompletion(giftSub.timestamp, 1);
+            
+            console.log(`✅ Marked 1 spin as completed for ${targetUsername}'s gift sub`);
+            return {
+              success: true,
+              type: 'gift_sub',
+              giftSub,
+              message: `Marked 1 spin as completed for ${targetUsername} (${currentCompleted + 1}/${maxSpins})`
+            };
+          } else {
+            console.log(`❌ All spins already completed for ${targetUsername}'s gift sub`);
+            return {
+              success: false,
+              message: `All spins already completed for ${targetUsername}'s gift sub (${currentCompleted}/${maxSpins})`
+            };
+          }
         } else {
-          console.log(`Gift sub from ${targetUsername} was already marked for spin`);
+          console.log(`❌ Gift sub from ${targetUsername} (${giftSub.subCount} subs) doesn't qualify for spins (threshold: ${giftSubThreshold})`);
+          return {
+            success: false,
+            message: `Gift sub from ${targetUsername} doesn't meet the threshold for spins`
+          };
         }
       }
       
       // No valid donation or gift sub found for the user
-      console.log(`No recent donations or gift subs found for ${targetUsername}`);
+      console.log(`❌ No recent donations or gift subs found for ${targetUsername}`);
       return {
         success: false,
         message: `No recent donations or gift subs found for ${targetUsername}`
