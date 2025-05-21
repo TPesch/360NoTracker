@@ -761,7 +761,70 @@ class DataManager extends EventEmitter {
       }
     });
   }
-  // Get spin tracker data
+  // // Get spin tracker data
+  // getSpinTrackerData() {
+  // return new Promise(async (resolve, reject) => {
+  //   try {
+  //     const spinTrackerItems = [];
+  //     const bitThreshold = this.config.bitThreshold || 1000;
+  //     const giftSubThreshold = this.config.giftSubThreshold || 3;
+      
+  //     // Get bit donations and calculate spins
+  //     const bitData = await this.getBitDonations();
+  //     const giftSubData = await this.getGiftSubs();
+      
+  //     // Process bit donations
+  //     bitData.donations.forEach(donation => {
+  //       if (donation.bits >= bitThreshold) {
+  //         const spinCount = Math.floor(donation.bits / bitThreshold);
+          
+  //         // Get completed count from spin status (default to 0 if not defined)
+  //         const completedCount = donation.spinCompletedCount || 0;
+          
+  //         spinTrackerItems.push({
+  //           id: `bit_${donation.timestamp}`,
+  //           timestamp: donation.timestamp,
+  //           username: donation.username,
+  //           type: 'bits',
+  //           amount: donation.bits,
+  //           spinCount,
+  //           completedCount,
+  //           message: donation.message
+  //         });
+  //       }
+  //     });
+      
+  //     // Process gift subs
+  //     giftSubData.giftSubs.forEach(giftSub => {
+  //       if (giftSub.subCount >= giftSubThreshold) {
+  //         const spinCount = Math.floor(giftSub.subCount / giftSubThreshold);
+          
+  //         // Get completed count from spin status (default to 0 if not defined)
+  //         const completedCount = giftSub.spinCompletedCount || 0;
+          
+  //         spinTrackerItems.push({
+  //           id: `giftsub_${giftSub.timestamp}`,
+  //           timestamp: giftSub.timestamp,
+  //           username: giftSub.username,
+  //           type: 'giftsubs',
+  //           amount: giftSub.subCount,
+  //           spinCount,
+  //           completedCount
+  //         });
+  //       }
+  //     });
+      
+  //     // Sort by timestamp (newest first)
+  //     spinTrackerItems.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      
+  //     resolve({ items: spinTrackerItems });
+  //   } catch (error) {
+  //     reject(error);
+  //   }
+  // });
+  // }
+
+  // Get spin tracker data - ENHANCED WITH GROUPING
   getSpinTrackerData() {
   return new Promise(async (resolve, reject) => {
     try {
