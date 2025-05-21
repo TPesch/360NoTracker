@@ -1,4 +1,4 @@
-// Spin tracker page script with fixes
+// Spin tracker page script with fixes and grouping
 document.addEventListener('DOMContentLoaded', async function() {
   // Elements
   const channelNameEl = document.getElementById('channel-name');
@@ -24,9 +24,6 @@ document.addEventListener('DOMContentLoaded', async function() {
   const navSpinTrackerBtn = document.getElementById('nav-spin-tracker');
   const navDataBtn = document.getElementById('nav-data');
   const navSettingsBtn = document.getElementById('nav-settings');
-  
-  // // Export button
-  // const exportSpinTrackerBtn = document.getElementById('export-spin-tracker');
   
   // Navigation handlers
   navDashboardBtn.addEventListener('click', () => {
@@ -65,23 +62,23 @@ document.addEventListener('DOMContentLoaded', async function() {
   // Clear completed button handler
   clearCompletedButton.addEventListener('click', clearCompletedSpins);
   
-  // // Export handler
-  // exportSpinTrackerBtn.addEventListener('click', () => {
-  //   exportCSV('spin_tracker');
-  // });
-  
   // Format timestamp
   function formatTimestamp(timestamp) {
     const date = new Date(timestamp);
     return date.toLocaleString();
   }
   
-  // Generate spin icons based on count and status
+  // Generate spin icons based on count and status - FIXED VERSION
   function generateSpinIcons(spinCount, completedCount) {
     let icons = '';
     
+    // Ensure completedCount doesn't exceed spinCount
+    const safeCompletedCount = Math.min(Math.max(0, completedCount), spinCount);
+    
+    console.log(`Generating icons: spinCount=${spinCount}, completedCount=${completedCount}, safeCompletedCount=${safeCompletedCount}`);
+    
     for (let i = 0; i < spinCount; i++) {
-      if (i < completedCount) {
+      if (i < safeCompletedCount) {
         // Green check for completed spins
         icons += '<i class="fas fa-check-circle completed-spin" title="Completed"></i> ';
       } else {
@@ -93,38 +90,66 @@ document.addEventListener('DOMContentLoaded', async function() {
     return icons;
   }
   
-  // Render a single spin tracker row
+  // Generate donation details tooltip
+  function generateDonationTooltip(item) {
+    let tooltip = '';
+    
+    if (item.type === 'bits' && item.donations) {
+      tooltip = `Total from ${item.donations.length} donation(s):\n`;
+      item.donations.forEach(d => {
+        tooltip += `• ${d.bits} bits on ${formatTimestamp(d.timestamp)}\n`;
+      });
+    } else if (item.type === 'giftsubs' && item.giftSubs) {
+      tooltip = `Total from ${item.giftSubs.length} gift sub event(s):\n`;
+      item.giftSubs.forEach(gs => {
+        tooltip += `• ${gs.subCount} subs on ${formatTimestamp(gs.timestamp)}\n`;
+      });
+    }
+    
+    return tooltip;
+  }
+  
+  // Render a single spin tracker row - FIXED VERSION
   function renderSpinTrackerRow(item) {
     const tr = document.createElement('tr');
     
-    // Format date
+    // Format date (use most recent timestamp)
     const date = formatTimestamp(item.timestamp);
     
-    // Calculate spins earned
-    const spinsEarned = item.spinCount;
+    // Ensure we have valid numbers
+    const spinsEarned = Math.max(0, parseInt(item.spinCount) || 0);
+    const completedCount = Math.max(0, parseInt(item.completedCount) || 0);
+    
+    // Ensure completedCount doesn't exceed spinsEarned
+    const safeCompletedCount = Math.min(completedCount, spinsEarned);
+    
+    console.log(`Rendering row for ${item.username}: spinsEarned=${spinsEarned}, completedCount=${completedCount}, safeCompletedCount=${safeCompletedCount}`);
     
     // Render spin status icons
-    const spinIcons = generateSpinIcons(spinsEarned, item.completedCount);
+    const spinIcons = generateSpinIcons(spinsEarned, safeCompletedCount);
     
     // Type specific formatting
     let typeDisplay, amountDisplay;
     if (item.type === 'bits') {
-      typeDisplay = '<span class="type-bits">Bit Donation</span>';
-      amountDisplay = `${item.amount} bits`;
+      typeDisplay = '<span class="type-bits">Bit Donations</span>';
+      amountDisplay = `${item.amount} bits total`;
     } else {
       typeDisplay = '<span class="type-giftsub">Gift Subs</span>';
-      amountDisplay = `${item.amount} subs`;
+      amountDisplay = `${item.amount} subs total`;
     }
+    
+    // Generate tooltip for donation details
+    const tooltip = generateDonationTooltip(item);
     
     tr.innerHTML = `
       <td>${date}</td>
       <td>${escapeHtml(item.username)}</td>
       <td>${typeDisplay}</td>
-      <td>${amountDisplay}</td>
+      <td title="${tooltip}">${amountDisplay}</td>
       <td>${spinsEarned}</td>
       <td class="spin-status-icons">${spinIcons}</td>
       <td>
-        <button class="btn-complete-spin" data-id="${item.id}" ${item.completedCount >= spinsEarned ? 'disabled' : ''}>
+        <button class="btn-complete-spin" data-id="${item.id}" ${safeCompletedCount >= spinsEarned ? 'disabled' : ''}>
           <i class="fas fa-check"></i> Complete Spin
         </button>
         <button class="btn-reset-spins" data-id="${item.id}">
@@ -172,32 +197,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     updateSpinSummary();
   }
   
-  // // Update spin summary statistics
-  // function updateSpinSummary() {
-  //   // Calculate totals
-  //   let totalSpinsEarned = 0;
-  //   let spinsCompleted = 0;
-  //   let spinsPending = 0;
-  //   const usersPending = new Set();
-    
-  //   spinItems.forEach(item => {
-  //     totalSpinsEarned += item.spinCount;
-  //     spinsCompleted += item.completedCount;
-  //     spinsPending += (item.spinCount - item.completedCount);
-      
-  //     if (item.completedCount < item.spinCount) {
-  //       usersPending.add(item.username);
-  //     }
-  //   });
-    
-  //   // Update display
-  //   totalSpinsEarnedEl.textContent = totalSpinsEarned;
-  //   spinsCompletedEl.textContent = spinsCompleted;
-  //   spinsPendingEl.textContent = spinsPending;
-  //   usersPendingEl.textContent = usersPending.size;
-  // }
-  
-// Fixed updateSpinSummary function for spin-tracker.js
+  // FIXED updateSpinSummary function - prevents negative pending counts
   function updateSpinSummary() {
     // Calculate totals
     let totalSpinsEarned = 0;
@@ -206,16 +206,17 @@ document.addEventListener('DOMContentLoaded', async function() {
     const usersPending = new Set();
     
     // Add debugging
-    console.log('Updating spin summary with', spinItems.length, 'items');
+    console.log('Updating spin summary with', spinItems.length, 'grouped items');
     
     spinItems.forEach((item, index) => {
-      // Ensure completedCount is a valid number
-      const completedCount = Math.max(0, parseInt(item.completedCount) || 0);
+      // Ensure all values are valid numbers
       const spinCount = Math.max(0, parseInt(item.spinCount) || 0);
+      const completedCount = Math.min(spinCount, Math.max(0, parseInt(item.completedCount) || 0));
       
       // Debug logging for each item
-      console.log(`Item ${index}:`, {
+      console.log(`Grouped item ${index}:`, {
         username: item.username,
+        type: item.type,
         spinCount: spinCount,
         completedCount: completedCount,
         pending: spinCount - completedCount
@@ -224,17 +225,17 @@ document.addEventListener('DOMContentLoaded', async function() {
       totalSpinsEarned += spinCount;
       spinsCompleted += completedCount;
       
-      const pendingForUser = spinCount - completedCount;
-      spinsPending += Math.max(0, pendingForUser); // Ensure no negative pending
+      const pendingForUser = Math.max(0, spinCount - completedCount);
+      spinsPending += pendingForUser;
       
       // Only add to pending users if they actually have pending spins
       if (pendingForUser > 0) {
-        usersPending.add(item.username);
+        usersPending.add(item.username.toLowerCase());
       }
     });
     
     // Debug final calculations
-    console.log('Final summary:', {
+    console.log('Final grouped summary:', {
       totalSpinsEarned,
       spinsCompleted,
       spinsPending,
@@ -248,115 +249,48 @@ document.addEventListener('DOMContentLoaded', async function() {
     usersPendingEl.textContent = Math.max(0, usersPending.size);
   }
 
-  // Mark a spin as completed - FIXED FUNCTION
+  // Mark a spin as completed - UPDATED FOR GROUPED DATA
   async function completeSpin(id) {
     try {
-      console.log('Completing spin with ID:', id);
-      
-      // Find the current item before the update
-      const currentItem = spinItems.find(item => item.id === id);
-      if (!currentItem) {
-        console.error('Item not found for ID:', id);
-        return;
-      }
+      console.log('Completing grouped spin with ID:', id);
       
       // Call the API to complete the spin
       const result = await window.electronAPI.completeSpin(id);
       
       if (result.success) {
-        console.log('Spin completed successfully, result:', result);
+        console.log('Grouped spin completed successfully');
         
-        // Find the row in the UI
-        const row = document.querySelector(`tr[data-id="${id}"]`);
-        if (row) {
-          // Get the updated completed count
-          let updatedCompletedCount = currentItem.completedCount + 1;
-          
-          // Make sure it doesn't exceed the spin count
-          updatedCompletedCount = Math.min(updatedCompletedCount, currentItem.spinCount);
-          
-          // Update the spin status icons in the row
-          const spinStatusCell = row.querySelector('.spin-status-icons');
-          if (spinStatusCell) {
-            spinStatusCell.innerHTML = generateSpinIcons(currentItem.spinCount, updatedCompletedCount);
-          }
-          
-          // Disable the Complete Spin button if all spins are completed
-          const completeButton = row.querySelector('.btn-complete-spin');
-          if (completeButton && updatedCompletedCount >= currentItem.spinCount) {
-            completeButton.disabled = true;
-          }
-          
-          // Update the item in our global array
-          const itemIndex = spinItems.findIndex(item => item.id === id);
-          if (itemIndex !== -1) {
-            spinItems[itemIndex].completedCount = updatedCompletedCount;
-            
-            // Update the summary stats
-            updateSpinSummary();
-          }
-        }
+        // Reload the entire dataset to reflect all changes
+        await loadSpinTrackerData();
       } else {
-        console.error('Error from API when completing spin:', result.error || 'Unknown error');
+        console.error('Error from API when completing grouped spin:', result.error || 'Unknown error');
         alert('Failed to complete spin. Please try again.');
       }
     } catch (error) {
-      console.error('Error completing spin:', error);
+      console.error('Error completing grouped spin:', error);
       alert('An error occurred while completing the spin. Please try again.');
     }
   }
   
-  // Reset spins for an item - FIXED FUNCTION
+  // Reset spins for an item - UPDATED FOR GROUPED DATA
   async function resetSpins(id) {
     try {
-      console.log('Resetting spins with ID:', id);
+      console.log('Resetting grouped spins with ID:', id);
       
-      // Find the current item before the update
-      const currentItem = spinItems.find(item => item.id === id);
-      if (!currentItem) {
-        console.error('Item not found for ID:', id);
-        return;
-      }
-      
-      // Call the API to reset the spin
+      // Call the API to reset the spins
       const result = await window.electronAPI.resetSpins(id);
       
       if (result.success) {
-        console.log('Spins reset successfully');
+        console.log('Grouped spins reset successfully');
         
-        // Find the row in the UI
-        const row = document.querySelector(`tr[data-id="${id}"]`);
-        if (row) {
-          // Reset completed count to 0
-          const updatedCompletedCount = 0;
-          
-          // Update the spin status icons in the row
-          const spinStatusCell = row.querySelector('.spin-status-icons');
-          if (spinStatusCell) {
-            spinStatusCell.innerHTML = generateSpinIcons(currentItem.spinCount, updatedCompletedCount);
-          }
-          
-          // Enable the Complete Spin button
-          const completeButton = row.querySelector('.btn-complete-spin');
-          if (completeButton) {
-            completeButton.disabled = false;
-          }
-          
-          // Update the item in our global array
-          const itemIndex = spinItems.findIndex(item => item.id === id);
-          if (itemIndex !== -1) {
-            spinItems[itemIndex].completedCount = updatedCompletedCount;
-            
-            // Update the summary stats
-            updateSpinSummary();
-          }
-        }
+        // Reload the entire dataset to reflect all changes
+        await loadSpinTrackerData();
       } else {
-        console.error('Error from API when resetting spins:', result.error || 'Unknown error');
+        console.error('Error from API when resetting grouped spins:', result.error || 'Unknown error');
         alert('Failed to reset spins. Please try again.');
       }
     } catch (error) {
-      console.error('Error resetting spins:', error);
+      console.error('Error resetting grouped spins:', error);
       alert('An error occurred while resetting spins. Please try again.');
     }
   }
@@ -402,33 +336,28 @@ document.addEventListener('DOMContentLoaded', async function() {
     return div.innerHTML;
   }
   
-  // // Export CSV
-  // async function exportCSV(type) {
-  //   try {
-  //     const result = await window.electronAPI.exportCSV(type);
-  //     if (result.success) {
-  //       console.log(`Exported ${type} data successfully`);
-  //     }
-  //   } catch (error) {
-  //     console.error(`Error exporting ${type} data:`, error);
-  //   }
-  // }
-  
   // Global storage for spin tracker items
   let spinItems = [];
   
-  // Load spin tracker data
+  // Load spin tracker data - ENHANCED WITH VALIDATION
   async function loadSpinTrackerData() {
     try {
       // Show loading message
-      spinTrackerTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Loading spin tracker data...</td></tr>';
+      spinTrackerTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Loading grouped spin tracker data...</td></tr>';
       
-      // Get spin tracker data
+      // Get spin tracker data (now grouped)
       const result = await window.electronAPI.getSpinTrackerData();
-      console.log('Loaded spin tracker data:', result);
+      console.log('Loaded grouped spin tracker data:', result);
       
-      // Store data globally
-      spinItems = result.items || [];
+      // Store data globally and validate each item
+      spinItems = (result.items || []).map(item => ({
+        ...item,
+        spinCount: Math.max(0, parseInt(item.spinCount) || 0),
+        completedCount: Math.min(
+          Math.max(0, parseInt(item.spinCount) || 0),
+          Math.max(0, parseInt(item.completedCount) || 0)
+        )
+      }));
       
       // Clear loading message
       spinTrackerTableBody.innerHTML = '';
@@ -454,54 +383,11 @@ document.addEventListener('DOMContentLoaded', async function() {
       // Update summary
       updateSpinSummary();
     } catch (error) {
-      console.error('Error loading spin tracker data:', error);
+      console.error('Error loading grouped spin tracker data:', error);
       spinTrackerTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Error loading data</td></tr>';
     }
   }
   
-  function debugSpinData() {
-    console.log('=== DEBUGGING SPIN DATA ===');
-    
-    spinItems.forEach((item, index) => {
-      const completedCount = parseInt(item.completedCount) || 0;
-      const spinCount = parseInt(item.spinCount) || 0;
-      
-      if (completedCount > spinCount) {
-        console.warn(`⚠️  Item ${index} has more completed than earned:`, {
-          username: item.username,
-          timestamp: item.timestamp,
-          type: item.type,
-          spinCount: spinCount,
-          completedCount: completedCount,
-          difference: completedCount - spinCount
-        });
-      }
-      
-      if (completedCount < 0 || spinCount < 0) {
-        console.error(`❌ Item ${index} has negative values:`, {
-          username: item.username,
-          timestamp: item.timestamp,
-          type: item.type,
-          spinCount: spinCount,
-          completedCount: completedCount
-        });
-      }
-    });
-    
-    // Check if there are any items with invalid data
-    const invalidItems = spinItems.filter(item => {
-      const completed = parseInt(item.completedCount) || 0;
-      const earned = parseInt(item.spinCount) || 0;
-      return completed > earned || completed < 0 || earned < 0;
-    });
-    
-    if (invalidItems.length > 0) {
-      console.error(`Found ${invalidItems.length} items with invalid spin data!`);
-      
-      // Show a user-friendly alert
-      alert(`Found ${invalidItems.length} entries with corrupted spin data. Check the console for details. You may need to reset the spin completion data.`);
-    }
-  }
   // Add event listeners to complete/reset buttons
   function addButtonEventListeners() {
     // Complete spin buttons
@@ -526,7 +412,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     try {
       // Get configuration
       const config = await window.electronAPI.getConfig();
-      
       
       // Update channel name
       channelNameEl.textContent = config.channelName || 'Not set';

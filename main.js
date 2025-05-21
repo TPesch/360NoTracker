@@ -342,7 +342,7 @@ function createWindow() {
   }
 }
 
-// // Create application menu
+// // Old Create application menu
 // function createMenu() {
 //   const template = [
 //     {
@@ -437,6 +437,8 @@ function createWindow() {
 // }
 
 // Fixed main.js menu with correct IPC calls for test functions
+
+
 function createMenu() {
   const template = [
     {

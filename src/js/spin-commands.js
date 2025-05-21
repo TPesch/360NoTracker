@@ -16,10 +16,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const navSpinTrackerBtn = document.getElementById('nav-spin-tracker');
     const navDataBtn = document.getElementById('nav-data');
     const navSettingsBtn = document.getElementById('nav-settings');
-    
-    // // Export button
-    // const exportSpinCommandsBtn = document.getElementById('export-spin-commands');
-    
+     
     // Navigation handlers
     navDashboardBtn.addEventListener('click', () => {
       window.location.href = 'index.html';
@@ -49,10 +46,7 @@ document.addEventListener('DOMContentLoaded', async function() {
       window.location.href = 'settings.html';
     });
     
-    // // Export handler
-    // exportSpinCommandsBtn.addEventListener('click', () => {
-    //   exportCSV('spin_commands');
-    // });
+
     
     // Format timestamp
     function formatTimestamp(timestamp) {
@@ -122,18 +116,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         spinCommandsTableBody.appendChild(tr);
       }
     }
-    
-    // // Export CSV
-    // async function exportCSV(type) {
-    //   try {
-    //     const result = await window.electronAPI.exportCSV(type);
-    //     if (result.success) {
-    //       console.log(`Exported ${type} data successfully`);
-    //     }
-    //   } catch (error) {
-    //     console.error(`Error exporting ${type} data:`, error);
-    //   }
-    // }
     
     // Initialize
     async function initialize() {

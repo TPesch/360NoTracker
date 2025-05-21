@@ -222,11 +222,11 @@ class TwitchClient {
                 
                 // Send feedback to chat (optional)
                 if (result.success) {
-                  // You could uncomment this to send chat feedback
+                  //ncomment this to send chat feedback
                   // this.client.say(channel, `@${username} Marked spin for ${targetUsername}!`);
                 } else {
                   console.log(`Failed to mark spin for ${targetUsername}: ${result.message}`);
-                  // You could uncomment this to send error feedback
+                  // uncomment this to send error feedback
                   // this.client.say(channel, `@${username} Could not find recent donation from ${targetUsername}`);
                 }
               })
@@ -235,7 +235,7 @@ class TwitchClient {
               });
           } else {
             console.log(`Invalid !spin command format from ${username}: ${messageText}`);
-            // You could uncomment this to send usage help
+            //uncomment this to send usage help
             // this.client.say(channel, `@${username} Usage: !spin @username`);
           }
         } else {
@@ -262,7 +262,7 @@ class TwitchClient {
               .then(result => {
                 if (result.success) {
                   console.log(`Mod ${username} updated thresholds: bits=${bitThreshold}, subs=${giftSubThreshold}`);
-                  // You could uncomment this to send confirmation
+                  //uncomment this to send confirmation
                   // this.client.say(channel, `@${username} Thresholds updated: ${bitThreshold} bits, ${giftSubThreshold} subs`);
                 }
               })
@@ -271,7 +271,7 @@ class TwitchClient {
               });
           } else {
             console.log(`Invalid threshold format from ${username}: ${messageText}`);
-            // You could uncomment this to send usage help
+            //uncomment this to send usage help
             // this.client.say(channel, `@${username} Usage: !setthreshold bits=1000 subs=3`);
           }
         }

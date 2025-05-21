@@ -16,8 +16,6 @@ class DataManager extends EventEmitter {
     this.spinCommandsPath = path.join(dataPath, 'spin_commands.csv');
     
     // Default configuration
-    // In the constructor, add this to the default configuration
-    // In the constructor, update the default configuration
     this.config = {
       channelName: 'girl_dm_',
       bitThreshold: 1000,
@@ -761,155 +759,226 @@ class DataManager extends EventEmitter {
       }
     });
   }
-  // // Get spin tracker data
-  // getSpinTrackerData() {
-  // return new Promise(async (resolve, reject) => {
-  //   try {
-  //     const spinTrackerItems = [];
-  //     const bitThreshold = this.config.bitThreshold || 1000;
-  //     const giftSubThreshold = this.config.giftSubThreshold || 3;
-      
-  //     // Get bit donations and calculate spins
-  //     const bitData = await this.getBitDonations();
-  //     const giftSubData = await this.getGiftSubs();
-      
-  //     // Process bit donations
-  //     bitData.donations.forEach(donation => {
-  //       if (donation.bits >= bitThreshold) {
-  //         const spinCount = Math.floor(donation.bits / bitThreshold);
-          
-  //         // Get completed count from spin status (default to 0 if not defined)
-  //         const completedCount = donation.spinCompletedCount || 0;
-          
-  //         spinTrackerItems.push({
-  //           id: `bit_${donation.timestamp}`,
-  //           timestamp: donation.timestamp,
-  //           username: donation.username,
-  //           type: 'bits',
-  //           amount: donation.bits,
-  //           spinCount,
-  //           completedCount,
-  //           message: donation.message
-  //         });
-  //       }
-  //     });
-      
-  //     // Process gift subs
-  //     giftSubData.giftSubs.forEach(giftSub => {
-  //       if (giftSub.subCount >= giftSubThreshold) {
-  //         const spinCount = Math.floor(giftSub.subCount / giftSubThreshold);
-          
-  //         // Get completed count from spin status (default to 0 if not defined)
-  //         const completedCount = giftSub.spinCompletedCount || 0;
-          
-  //         spinTrackerItems.push({
-  //           id: `giftsub_${giftSub.timestamp}`,
-  //           timestamp: giftSub.timestamp,
-  //           username: giftSub.username,
-  //           type: 'giftsubs',
-  //           amount: giftSub.subCount,
-  //           spinCount,
-  //           completedCount
-  //         });
-  //       }
-  //     });
-      
-  //     // Sort by timestamp (newest first)
-  //     spinTrackerItems.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-      
-  //     resolve({ items: spinTrackerItems });
-  //   } catch (error) {
-  //     reject(error);
-  //   }
-  // });
-  // }
 
-  // Get spin tracker data - ENHANCED WITH GROUPING
+  // Get spin tracker data - FIXED GROUPING (corrected completion count)
   getSpinTrackerData() {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const spinTrackerItems = [];
-      const bitThreshold = this.config.bitThreshold || 1000;
-      const giftSubThreshold = this.config.giftSubThreshold || 3;
-      
-      // Get bit donations and calculate spins
-      const bitData = await this.getBitDonations();
-      const giftSubData = await this.getGiftSubs();
-      
-      // Process bit donations
-      bitData.donations.forEach(donation => {
-        if (donation.bits >= bitThreshold) {
-          const spinCount = Math.floor(donation.bits / bitThreshold);
-          
-          // Get completed count from spin status (default to 0 if not defined)
-          const completedCount = donation.spinCompletedCount || 0;
-          
-          spinTrackerItems.push({
-            id: `bit_${donation.timestamp}`,
-            timestamp: donation.timestamp,
-            username: donation.username,
-            type: 'bits',
-            amount: donation.bits,
-            spinCount,
-            completedCount,
-            message: donation.message
-          });
-        }
-      });
-      
-      // Process gift subs
-      giftSubData.giftSubs.forEach(giftSub => {
-        if (giftSub.subCount >= giftSubThreshold) {
-          const spinCount = Math.floor(giftSub.subCount / giftSubThreshold);
-          
-          // Get completed count from spin status (default to 0 if not defined)
-          const completedCount = giftSub.spinCompletedCount || 0;
-          
-          spinTrackerItems.push({
-            id: `giftsub_${giftSub.timestamp}`,
-            timestamp: giftSub.timestamp,
-            username: giftSub.username,
-            type: 'giftsubs',
-            amount: giftSub.subCount,
-            spinCount,
-            completedCount
-          });
-        }
-      });
-      
-      // Sort by timestamp (newest first)
-      spinTrackerItems.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-      
-      resolve({ items: spinTrackerItems });
-    } catch (error) {
-      reject(error);
-    }
-  });
+    return new Promise(async (resolve, reject) => {
+      try {
+        const spinTrackerItems = [];
+        const bitThreshold = this.config.bitThreshold || 1000;
+        const giftSubThreshold = this.config.giftSubThreshold || 3;
+        
+        // Get bit donations and gift subs
+        const bitData = await this.getBitDonations();
+        const giftSubData = await this.getGiftSubs();
+        
+        // Group donations by username and type
+        const groupedData = {};
+        
+        // Process bit donations - group by username
+        bitData.donations.forEach(donation => {
+          if (donation.bits >= bitThreshold) {
+            const username = donation.username.toLowerCase(); // Use lowercase for consistent grouping
+            const key = `${username}_bits`;
+            
+            if (!groupedData[key]) {
+              groupedData[key] = {
+                id: `bit_${username}`,
+                username: donation.username, // Keep original casing for display
+                type: 'bits',
+                totalAmount: 0,
+                spinCount: 0,
+                completedCount: 0, // We'll calculate this correctly below
+                lastTimestamp: donation.timestamp,
+                donations: []
+              };
+            }
+            
+            // Add to totals
+            groupedData[key].totalAmount += donation.bits;
+            groupedData[key].spinCount += Math.floor(donation.bits / bitThreshold);
+            groupedData[key].donations.push(donation);
+            
+            // Update timestamp if this donation is newer
+            if (new Date(donation.timestamp) > new Date(groupedData[key].lastTimestamp)) {
+              groupedData[key].lastTimestamp = donation.timestamp;
+            }
+          }
+        });
+        
+        // Process gift subs - group by username
+        giftSubData.giftSubs.forEach(giftSub => {
+          if (giftSub.subCount >= giftSubThreshold) {
+            const username = giftSub.username.toLowerCase(); // Use lowercase for consistent grouping
+            const key = `${username}_giftsubs`;
+            
+            if (!groupedData[key]) {
+              groupedData[key] = {
+                id: `giftsub_${username}`,
+                username: giftSub.username, // Keep original casing for display
+                type: 'giftsubs',
+                totalAmount: 0,
+                spinCount: 0,
+                completedCount: 0, // We'll calculate this correctly below
+                lastTimestamp: giftSub.timestamp,
+                giftSubs: []
+              };
+            }
+            
+            // Add to totals
+            groupedData[key].totalAmount += giftSub.subCount;
+            groupedData[key].spinCount += Math.floor(giftSub.subCount / giftSubThreshold);
+            groupedData[key].giftSubs.push(giftSub);
+            
+            // Update timestamp if this gift sub is newer
+            if (new Date(giftSub.timestamp) > new Date(groupedData[key].lastTimestamp)) {
+              groupedData[key].lastTimestamp = giftSub.timestamp;
+            }
+          }
+        });
+        
+        // NOW calculate completed counts correctly for each group
+        Object.values(groupedData).forEach(group => {
+          if (group.type === 'bits') {
+            // Calculate total completed spins across all donations for this user
+            group.completedCount = group.donations.reduce((total, donation) => {
+              return total + (donation.spinCompletedCount || 0);
+            }, 0);
+          } else if (group.type === 'giftsubs') {
+            // Calculate total completed spins across all gift subs for this user
+            group.completedCount = group.giftSubs.reduce((total, giftSub) => {
+              return total + (giftSub.spinCompletedCount || 0);
+            }, 0);
+          }
+        });
+        
+        // Convert grouped data to array format
+        const items = Object.values(groupedData).map(group => ({
+          id: group.id,
+          timestamp: group.lastTimestamp,
+          username: group.username,
+          type: group.type,
+          amount: group.totalAmount,
+          spinCount: group.spinCount,
+          completedCount: group.completedCount,
+          donations: group.donations || [],
+          giftSubs: group.giftSubs || []
+        }));
+        
+        // Sort by timestamp (newest first)
+        items.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        
+        resolve({ items });
+      } catch (error) {
+        reject(error);
+      }
+    });
   }
-  // Complete a spin
+
+    // Complete a spin - FIXED VERSION (prevents completion overflow)
   async completeSpin(id) {
     try {
-      // Parse the ID to determine type
-      const [type, timestamp] = id.split('_');
+      console.log('Completing spin with ID:', id);
       
+      // Parse the ID to determine type and username
+      const parts = id.split('_');
+      const type = parts[0]; // 'bit' or 'giftsub'
+      const username = parts.slice(1).join('_'); // Rejoin in case username has underscores
+      
+      // Find all matching entries for this user and type
       if (type === 'bit') {
-        // Get the bit donation and update completed count
-        const result = await this.updateDonationSpinCompletion(timestamp, 1);
+        // Get all bit donations for this user
+        const bitData = await this.getBitDonations();
+        const userDonations = bitData.donations.filter(d => 
+          d.username.toLowerCase() === username.toLowerCase() && 
+          d.bits >= (this.config.bitThreshold || 1000)
+        );
         
-        if (result.success) {
-          this.emit('spin-status-update', { type: 'bit', timestamp });
+        // Calculate current total completed and total possible spins
+        let totalCompleted = 0;
+        let totalPossible = 0;
+        
+        userDonations.forEach(donation => {
+          const maxSpinsForDonation = Math.floor(donation.bits / (this.config.bitThreshold || 1000));
+          const completedForDonation = donation.spinCompletedCount || 0;
+          
+          totalCompleted += completedForDonation;
+          totalPossible += maxSpinsForDonation;
+        });
+        
+        console.log(`User ${username} bits: ${totalCompleted}/${totalPossible} spins completed`);
+        
+        // Check if we can complete another spin
+        if (totalCompleted >= totalPossible) {
+          return { success: false, error: 'All spins already completed for this user' };
         }
         
-        return result;
+        // Find the first donation that has available spins
+        for (const donation of userDonations) {
+          const maxSpinsForDonation = Math.floor(donation.bits / (this.config.bitThreshold || 1000));
+          const completedForDonation = donation.spinCompletedCount || 0;
+          
+          if (completedForDonation < maxSpinsForDonation) {
+            // Complete one spin on this specific donation
+            const result = await this.updateDonationSpinCompletion(donation.timestamp, 1);
+            
+            if (result.success) {
+              this.emit('spin-status-update', { type: 'bit', username });
+              console.log(`✅ Completed 1 spin for ${username} (now ${totalCompleted + 1}/${totalPossible})`);
+            }
+            
+            return result;
+          }
+        }
+        
+        return { success: false, error: 'No available spins found' };
+        
       } else if (type === 'giftsub') {
-        // Get the gift sub and update completed count
-        const result = await this.updateGiftSubSpinCompletion(timestamp, 1);
+        // Get all gift subs for this user
+        const giftSubData = await this.getGiftSubs();
+        const userGiftSubs = giftSubData.giftSubs.filter(gs => 
+          gs.username.toLowerCase() === username.toLowerCase() && 
+          gs.subCount >= (this.config.giftSubThreshold || 3)
+        );
         
-        if (result.success) {
-          this.emit('spin-status-update', { type: 'giftsub', timestamp });
+        // Calculate current total completed and total possible spins
+        let totalCompleted = 0;
+        let totalPossible = 0;
+        
+        userGiftSubs.forEach(giftSub => {
+          const maxSpinsForGiftSub = Math.floor(giftSub.subCount / (this.config.giftSubThreshold || 3));
+          const completedForGiftSub = giftSub.spinCompletedCount || 0;
+          
+          totalCompleted += completedForGiftSub;
+          totalPossible += maxSpinsForGiftSub;
+        });
+        
+        console.log(`User ${username} gift subs: ${totalCompleted}/${totalPossible} spins completed`);
+        
+        // Check if we can complete another spin
+        if (totalCompleted >= totalPossible) {
+          return { success: false, error: 'All spins already completed for this user' };
         }
         
-        return result;
+        // Find the first gift sub that has available spins
+        for (const giftSub of userGiftSubs) {
+          const maxSpinsForGiftSub = Math.floor(giftSub.subCount / (this.config.giftSubThreshold || 3));
+          const completedForGiftSub = giftSub.spinCompletedCount || 0;
+          
+          if (completedForGiftSub < maxSpinsForGiftSub) {
+            // Complete one spin on this specific gift sub
+            const result = await this.updateGiftSubSpinCompletion(giftSub.timestamp, 1);
+            
+            if (result.success) {
+              this.emit('spin-status-update', { type: 'giftsub', username });
+              console.log(`✅ Completed 1 spin for ${username} (now ${totalCompleted + 1}/${totalPossible})`);
+            }
+            
+            return result;
+          }
+        }
+        
+        return { success: false, error: 'No available spins found' };
       }
       
       return { success: false, error: 'Invalid ID type' };
@@ -918,7 +987,57 @@ class DataManager extends EventEmitter {
       return { success: false, error: error.message };
     }
   }
-  
+
+  // One-time cleanup function to fix completion count overflow
+  async cleanupCompletionCounts() {
+    try {
+      console.log('Cleaning up completion count overflow...');
+      
+      // Get all bit donations
+      const bitData = await this.getBitDonations();
+      const bitThreshold = this.config.bitThreshold || 1000;
+      
+      // Fix bit donations
+      for (const donation of bitData.donations) {
+        if (donation.bits >= bitThreshold) {
+          const maxSpins = Math.floor(donation.bits / bitThreshold);
+          const currentCompleted = donation.spinCompletedCount || 0;
+          
+          // If completed count exceeds maximum possible, reset it
+          if (currentCompleted > maxSpins) {
+            console.log(`Fixing donation ${donation.username}: ${currentCompleted} -> ${maxSpins}`);
+            await this.updateDonationSpinCompletion(donation.timestamp, maxSpins, true);
+          }
+        }
+      }
+      
+      // Get all gift subs
+      const giftSubData = await this.getGiftSubs();
+      const giftSubThreshold = this.config.giftSubThreshold || 3;
+      
+      // Fix gift subs
+      for (const giftSub of giftSubData.giftSubs) {
+        if (giftSub.subCount >= giftSubThreshold) {
+          const maxSpins = Math.floor(giftSub.subCount / giftSubThreshold);
+          const currentCompleted = giftSub.spinCompletedCount || 0;
+          
+          // If completed count exceeds maximum possible, reset it
+          if (currentCompleted > maxSpins) {
+            console.log(`Fixing gift sub ${giftSub.username}: ${currentCompleted} -> ${maxSpins}`);
+            await this.updateGiftSubSpinCompletion(giftSub.timestamp, maxSpins, true);
+          }
+        }
+      }
+      
+      console.log('Cleanup completed!');
+      return { success: true };
+    } catch (error) {
+      console.error('Error during cleanup:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+
   // Calculate bit donation statistics
   calculateDonationStats(donations) {
     let totalBits = 0;
@@ -1235,7 +1354,7 @@ class DataManager extends EventEmitter {
     });
   }
   
-  // // Process !spin command from a moderator
+  // // Old process !spin command from a moderator
   // async processSpinCommand(modUsername, targetUsername) {
   //   try {
   //     // First try to find a bit donation for this user
@@ -1398,7 +1517,8 @@ class DataManager extends EventEmitter {
   // }
 
 // Enhanced processSpinCommand with proper event emission
-  async processSpinCommand(modUsername, targetUsername) {
+  
+async processSpinCommand(modUsername, targetUsername) {
     try {
       console.log(`Processing !spin command from ${modUsername} for ${targetUsername}`);
       
@@ -1540,31 +1660,48 @@ class DataManager extends EventEmitter {
     const command = `!spin ${targetUsername}`;
     return this.recordSpinCommand(username, command);
   }
-  
-  // Reset spins for an item
+  // Reset spins for an item - ENHANCED FOR GROUPED DATA
   async resetSpins(id) {
     try {
-      // Parse the ID to determine type
-      const [type, timestamp] = id.split('_');
+      console.log('Resetting spins with ID:', id);
       
+      // Parse the ID to determine type and username
+      const parts = id.split('_');
+      const type = parts[0]; // 'bit' or 'giftsub'
+      const username = parts.slice(1).join('_'); // Rejoin in case username has underscores
+      
+      // Reset all matching entries for this user and type
       if (type === 'bit') {
-        // Reset completion count to 0
-        const result = await this.updateDonationSpinCompletion(timestamp, 0, true);
+        // Get all bit donations for this user
+        const bitData = await this.getBitDonations();
+        const userDonations = bitData.donations.filter(d => 
+          d.username.toLowerCase() === username.toLowerCase() && 
+          d.bits >= (this.config.bitThreshold || 1000)
+        );
         
-        if (result.success) {
-          this.emit('spin-status-update', { type: 'bit', timestamp });
+        // Reset all donations for this user
+        for (const donation of userDonations) {
+          await this.updateDonationSpinCompletion(donation.timestamp, 0, true);
         }
         
-        return result;
+        this.emit('spin-status-update', { type: 'bit', username });
+        return { success: true };
+        
       } else if (type === 'giftsub') {
-        // Reset completion count to 0
-        const result = await this.updateGiftSubSpinCompletion(timestamp, 0, true);
+        // Get all gift subs for this user
+        const giftSubData = await this.getGiftSubs();
+        const userGiftSubs = giftSubData.giftSubs.filter(gs => 
+          gs.username.toLowerCase() === username.toLowerCase() && 
+          gs.subCount >= (this.config.giftSubThreshold || 3)
+        );
         
-        if (result.success) {
-          this.emit('spin-status-update', { type: 'giftsub', timestamp });
+        // Reset all gift subs for this user
+        for (const giftSub of userGiftSubs) {
+          await this.updateGiftSubSpinCompletion(giftSub.timestamp, 0, true);
         }
         
-        return result;
+        this.emit('spin-status-update', { type: 'giftsub', username });
+        return { success: true };
       }
       
       return { success: false, error: 'Invalid ID type' };
@@ -1573,7 +1710,7 @@ class DataManager extends EventEmitter {
       return { success: false, error: error.message };
     }
   }
-  
+    
   // Clear all completed spins
   async clearCompletedSpins() {
     try {

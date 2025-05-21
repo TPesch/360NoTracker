@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const navDataBtn = document.getElementById('nav-data');
     const navSettingsBtn = document.getElementById('nav-settings');
     
-    // // Export button
+    // // Old Export button
     // const exportDonationsBtn = document.getElementById('export-donations');
     
     // Navigation handlers
@@ -52,11 +52,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     navSettingsBtn.addEventListener('click', () => {
       window.location.href = 'settings.html';
     });
-    
-    // // Export handler
-    // exportDonationsBtn.addEventListener('click', () => {
-    //   exportCSV('bit_donations');
-    // });
+
     
     // Format timestamp
     function formatTimestamp(timestamp) {
@@ -234,18 +230,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         donationTableBody.appendChild(tr);
       }
     }
-    
-    // // Export CSV
-    // async function exportCSV(type) {
-    //   try {
-    //     const result = await window.electronAPI.exportCSV(type);
-    //     if (result.success) {
-    //       console.log(`Exported ${type} data successfully`);
-    //     }
-    //   } catch (error) {
-    //     console.error(`Error exporting ${type} data:`, error);
-    //   }
-    // }
+
     
     // Update donation spin status
     async function updateSpinStatus(timestamp, spinTriggered) {
